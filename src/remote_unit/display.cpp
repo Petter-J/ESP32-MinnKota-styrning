@@ -117,13 +117,13 @@ void display_update(const StatusPacket& status, bool hasStatus, uint32_t buttonM
     if (status.mode == 1) // MANUAL
     {
         display.print("THR ");
-        display.print((int)roundf(status.manualThrustPct));
+        display.print(status.manualThrustPct);
         display.print("%");
     }
     else
     {
         display.print("SPD ");
-        display.print((int)roundf(status.targetSpeedPct));
+        display.print(status.targetSpeedPct);
         display.print("%");
     }
 
@@ -137,7 +137,7 @@ void display_update(const StatusPacket& status, bool hasStatus, uint32_t buttonM
     else
     {
         display.print("HDG ");
-        display.print((int)roundf(status.targetHeadingDeg));
+        display.print(status.targetHeadingDeg10 / 10);
     }
 
     // Row 4

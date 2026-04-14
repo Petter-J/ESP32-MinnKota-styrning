@@ -202,13 +202,21 @@ if (now - lastControlMs >= TimingConfig::CONTROL_INTERVAL_MS)
 // 6.5 Send status to remote
 StatusPacket pkt;
 pkt.mode = (uint8_t)gSys.mode;
-pkt.manualThrustPct = gSys.manualThrustPct;
-pkt.targetSpeedPct = gSys.targetSpeedPct;
-pkt.headingDeg = gSys.sensors.headingDeg;
-pkt.targetHeadingDeg = gSys.targetHeadingDeg;
+pkt.manualThrustPct = (uint8_t)roundf(gSys.manualThrustPct);
+pkt.targetSpeedPct = (uint8_t)roundf(gSys.targetSpeedPct);
+
+pkt.headingDeg10 = (uint16_t)roundf(gSys.sensors.headingDeg * 10.0f);
+pkt.targetHeadingDeg10 = (uint16_t)roundf(gSys.targetHeadingDeg * 10.0f);
+
 pkt.satellites = (uint8_t)gSys.sensors.satellites;
-pkt.gpsValid = gSys.sensors.gpsValid;
-pkt.counter = gStatusCounter++;
+
+pkt.flags = 0;
+if (gSys.sensors.gpsValid)
+{
+    pkt.flags |= STATUS_FLAG_GPS_VALID;
+}
+
+pkt.counter = (uint8_t)gStatusCounter++;
 
 gRemote.sendStatus(pkt);
 
