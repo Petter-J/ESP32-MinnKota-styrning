@@ -45,23 +45,22 @@ struct RemoteCommand
     uint32_t timestampMs = 0;
 };
 
-#pragma once
 
 struct StatusPacket
 {
     uint8_t mode = 0;
+    uint8_t manualThrustPct = 0;     // 0..100
+    uint8_t targetSpeedPct = 0;      // 0..100
 
-    float manualThrustPct = 0.0f;
-    float targetSpeedPct = 0.0f;
-
-    float headingDeg = 0.0f;
-    float targetHeadingDeg = 0.0f;
+    uint16_t headingDeg10 = 0;       // grader * 10
+    uint16_t targetHeadingDeg10 = 0; // grader * 10
 
     uint8_t satellites = 0;
-    bool gpsValid = false;
-
-    uint32_t counter = 0;
+    uint8_t flags = 0;               // bit0 = gpsValid
+    uint8_t counter = 0;
 };
+
+static constexpr uint8_t STATUS_FLAG_GPS_VALID = 1 << 0;
 
 struct SensorData
 {
