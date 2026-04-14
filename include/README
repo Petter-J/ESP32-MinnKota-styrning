@@ -1,37 +1,80 @@
+# ESP32-MinnKota-styrning
 
-This directory is intended for project header files.
+Ipilot liknande system med esp32 gps/kompass Foxeer
 
-A header file is a file containing C declarations and macro definitions
-to be shared between several project source files. You request the use of a
-header file in your project source file (C, C++, etc) located in `src` folder
-by including it, with the C preprocessing directive `#include'.
+## 🔧 Git Fusklapp - Spara din kod till GitHub
 
-```src/main.c
+### 📌 Vad är Git?
+Git håller koll på alla ändringar i din kod. GitHub är där du sparar den i molnet.
 
-#include "header.h"
+---
 
-int main (void)
-{
- ...
-}
+### 🚀 Första gången (redan gjort, men för referens)
+
+```bash
+git init                    # Initialisera Git (redan gjort)
+git add .                   # Lägg till alla filer
+git commit -m "Initial"     # Skapa första version
+git push -u origin main     # Skicka till GitHub första gången
 ```
 
-Including a header file produces the same results as copying the header file
-into each source file that needs it. Such copying would be time-consuming
-and error-prone. With a header file, the related declarations appear
-in only one place. If they need to be changed, they can be changed in one
-place, and programs that include the header file will automatically use the
-new version when next recompiled. The header file eliminates the labor of
-finding and changing all the copies as well as the risk that a failure to
-find one copy will result in inconsistencies within a program.
+---
 
-In C, the convention is to give header files names that end with `.h'.
+### 💾 Spara ändringar regelbundet
 
-Read more about using header files in official GCC documentation:
+Gör detta när du gjort ändringar i din kod:
 
-* Include Syntax
-* Include Operation
-* Once-Only Headers
-* Computed Includes
+```bash
+git status                  # (Valfritt) Se vad du ändrat
+git add .                   # Lägg till alla ändrade filer
+git commit -m "Beskrivning" # Spara versionen med en beskrivning
+git push                    # Skicka till GitHub
+```
 
-https://gcc.gnu.org/onlinedocs/cpp/Header-Files.html
+Exempel på bra beskrivningar:
+
+```bash
+git commit -m "Lägg till motor-styrning"
+git commit -m "Fixa GPS-läsning"
+git commit -m "Uppdatera kompass-kalibrering"
+git commit -m "Bugfix: display visar rätt värden"
+```
+
+---
+
+### 📖 Användbara kommandon
+
+| Kommando | Vad det gör |
+|----------|-----------|
+| `git status` | Visar vilka filer du ändrat |
+| `git log --oneline` | Visar din version-historia |
+| `git pull` | Hämtar senaste ändringar från GitHub |
+| `git branch` | Visar vilken branch du är på |
+| `git diff` | Visar exakt vad du ändrat |
+
+---
+
+### ⚠️ Viktiga tips
+
+- **Commita ofta!** Små ändringar är bättre än stora
+- **Skriv tydliga meddelanden** så du minns vad du gjorde senare
+- **Pusha före du stänger datorn** så har du backup på GitHub
+- **Kolla `git status` före push** för att se vad som sparas
+
+---
+
+### 🆘 Vanliga problem
+
+**"fatal: repository not found"**
+- Kontrollera att du är i rätt mapp
+- Kolla att repo-namnet är rätt på GitHub
+
+**"nothing to commit"**
+- Du har inte gjort några ändringar, eller de är redan sparade
+
+**Missade att commita något?**
+
+```bash
+git add .
+git commit --amend          # Lägger till i sista commit
+```
