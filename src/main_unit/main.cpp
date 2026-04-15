@@ -8,6 +8,7 @@
 #include "remote_espnow.h"
 #include "buttons.h"
 #include "input_logic.h"
+#include "navigation.h"
 
 
 // ============================================================
@@ -15,7 +16,7 @@
 // ============================================================
 static bool gDisplayLinkAlive = false;
 static uint32_t gStatusCounter = 0;
-static bool useSimulator = true;  // sätt false när GPS/kompass är inkopplat
+static bool useSimulator = false;  // sätt false när GPS/kompass är inkopplat
 static SystemState gSys;
 static MotorManager gMotors;
 static MainController gController;
@@ -23,6 +24,7 @@ static BoatSimulator gSimulator;
 static RemoteEspNow gRemote;
 static ButtonManager gButtons;
 static InputLogic gInputLogic;
+static Navigation gNavigation;
 
 // ============================================================
 // Local button read
@@ -64,20 +66,24 @@ static uint32_t readLocalButtons()
 static void printTelemetry(const SystemState& sys)
 {
     DBG_PRINTF(
-        "[TEL] mode=%s hdg=%.1f tgtH=%.1f tgtS=%.1f manT=%.1f manS=%.1f actT=%.1f actS=%.1f pos=(%.2f,%.2f)\n",
+        "[TEL] mode=%s hdg=%.1f hdgValid=%d gpsValid=%d spdValid=%d sats=%u lat=%.6f lon=%.6f gpsSpd=%.2f cog=%.1f spdPct=%.1f tgtH=%.1f tgtS=%.1f actT=%.1f actS=%.1f\n",
         modeToString(sys.mode),
         sys.sensors.headingDeg,
+        sys.sensors.headingValid ? 1 : 0,
+        sys.sensors.gpsValid ? 1 : 0,
+        sys.sensors.speedValid ? 1 : 0,
+        sys.sensors.satellites,
+        sys.sensors.latitudeDeg,
+        sys.sensors.longitudeDeg,
+        sys.sensors.gpsSpeedMps,
+        sys.sensors.courseOverGroundDeg,
+        sys.sensors.speedPct,
         sys.targetHeadingDeg,
         sys.targetSpeedPct,
-        sys.manualThrustPct,
-        sys.manualSteerPct,
         sys.actuators.thrustPct,
-        sys.actuators.steerPct,
-        sys.sensors.posX,
-        sys.sensors.posY
+        sys.actuators.steerPct
     );
 }
-
 // ============================================================
 // Setup
 // ============================================================
@@ -113,6 +119,7 @@ void setup()
     gRemote.begin();
     gButtons.begin();
     gInputLogic.begin();
+    gNavigation.begin();
 
     gSys.mode = SystemMode::STOP;
     gSys.motorsEnabled = true;
@@ -230,7 +237,7 @@ if (useSimulator && now - lastSimMs >= TimingConfig::SIM_INTERVAL_MS)
 }
 else if (!useSimulator)
 {
-    // Här kommer GPS + kompass senare
+  gNavigation.update(gSys.sensors);
 }
 
 

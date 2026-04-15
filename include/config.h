@@ -179,7 +179,7 @@ namespace SafetyConfig
 // ============================================================
 // DEBUG
 // ============================================================
-#define ENABLE_SERIAL_DEBUG 1
+#define ENABLE_SERIAL_DEBUG 0
 
 #if ENABLE_SERIAL_DEBUG
     #define DBG_PRINT(x) Serial.print(x)
