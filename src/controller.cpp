@@ -1,5 +1,6 @@
 #include "controller.h"
 #include "config.h"
+#include <cstring>
 
 void PidController::setTunings(float kp, float ki, float kd)
 {
@@ -123,6 +124,7 @@ ActuatorCommand MainController::computeStop(const SystemState& sys)
     ActuatorCommand out;
     out.thrustPct = 0.0f;
     out.steerPct  = 0.0f;
+    //strcpy(((SystemState&)sys).sensors.autoState, "STOP");
     return out;
 }
 
@@ -131,13 +133,37 @@ ActuatorCommand MainController::computeManual(const SystemState& sys)
     ActuatorCommand out;
     out.thrustPct = clampf(sys.manualThrustPct, Limits::THRUST_MIN_PCT, Limits::THRUST_MAX_PCT);
     out.steerPct  = clampf(sys.manualSteerPct, Limits::STEER_MIN_PCT, Limits::STEER_MAX_PCT);
+    //strcpy(((SystemState&)sys).sensors.autoState, "MAN");
     return out;
 }
 
 ActuatorCommand MainController::computeAuto(float dtSec, const SystemState& sys)
 {
     ActuatorCommand out;
+    strcpy(((SystemState&)sys).sensors.autoState, "RUN");
 
+    // AUTO-startläge:
+    // Om båten går för långsamt är GPS course opålitlig.
+    // Då ger vi en fast start-thrust och använder befintlig heading som stöd
+    // tills båten fått upp fart.
+    if (sys.sensors.gpsSpeedMps < AutoConfig::MIN_GPS_COURSE_SPEED_MPS)
+    {
+        strcpy(((SystemState&)sys).sensors.autoState, "START");
+
+        float headingError = shortestAngleErrorDeg(sys.targetHeadingDeg, sys.sensors.headingDeg);
+        float steerCmd = _headingPid.update(headingError, dtSec);
+
+        out.steerPct = clampf(steerCmd, Limits::STEER_MIN_PCT, Limits::STEER_MAX_PCT);
+        out.thrustPct = clampf(
+            AutoConfig::START_THRUST_PCT,
+            Limits::THRUST_MIN_PCT,
+            Limits::THRUST_MAX_PCT
+        );
+
+        return out;
+    }
+
+    // Normal AUTO när båten har fart nog
     float headingError = shortestAngleErrorDeg(sys.targetHeadingDeg, sys.sensors.headingDeg);
     float steerCmd = _headingPid.update(headingError, dtSec);
 
@@ -162,6 +188,7 @@ ActuatorCommand MainController::computeAnchor(float dtSec, const SystemState& sy
     float headingError = shortestAngleErrorDeg(sys.targetHeadingDeg, sys.sensors.headingDeg);
     out.steerPct = clampf(headingError, Limits::STEER_MIN_PCT, Limits::STEER_MAX_PCT);
     out.thrustPct = 0.0f;
+    //strcpy(((SystemState&)sys).sensors.autoState, "ANCHOR");
     return out;
 }
 

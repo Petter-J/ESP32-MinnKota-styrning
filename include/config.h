@@ -102,6 +102,16 @@ namespace MotorConfig
     static constexpr float STEER_MIN_START_PCT  = 10.0f;
 }
 
+// ============================================================
+// AUTO CONFIG
+// ============================================================
+
+namespace AutoConfig
+{
+    static constexpr float MIN_GPS_COURSE_SPEED_MPS = 0.5f;
+    static constexpr float START_THRUST_PCT = 20.0f;
+}
+
 
 // ============================================================
 // PWM / LEDC CONFIG

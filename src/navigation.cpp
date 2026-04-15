@@ -1,10 +1,9 @@
 #include "navigation.h"
-
+#include <cstring>
 #include <Arduino.h>
 #include <HardwareSerial.h>
 #include <TinyGPSPlus.h>
 #include <Wire.h>
-
 #include "config.h"
 
 static HardwareSerial GPSSerial(1);
@@ -13,11 +12,17 @@ static TinyGPSPlus gps;
 static float gCompassHeadingDeg = 0.0f;
 static bool gCompassValid = false;
 
+static uint8_t compassFailCount = 0;
+static constexpr uint8_t COMPASS_FAIL_LIMIT = 5;
+
 static constexpr float COMPASS_OFFSET_X = -27.5f;
 static constexpr float COMPASS_OFFSET_Y = -550.5f;
 
 static constexpr float COMPASS_GAIN_X = 1.164f;
 static constexpr float COMPASS_GAIN_Y = 0.876f;
+
+static constexpr float COMPASS_CROSS_XY = 0.05f;
+static constexpr float COMPASS_CROSS_YX = 0.05f;
 
 static int16_t magMinX = 32767;
 static int16_t magMaxX = -32768;
@@ -128,9 +133,18 @@ static bool updateCompassHeading()
     int16_t z = 0;
 
     if (!readCompassRaw(x, y, z))
+{
+    compassFailCount++;
+
+    if (compassFailCount >= COMPASS_FAIL_LIMIT)
     {
-        return false;
+        gCompassValid = false;
     }
+
+    return false; // behåll senaste heading
+}
+
+    compassFailCount = 0;
 
     if (x < magMinX) magMinX = x;
     if (x > magMaxX) magMaxX = x;
@@ -142,33 +156,28 @@ static bool updateCompassHeading()
     const float x0 = (float)x - COMPASS_OFFSET_X;
     const float y0 = (float)y - COMPASS_OFFSET_Y;
 
-    // --- Soft iron matrix (NYTT) ---
-    const float A = 1.164f;
-    const float B = 0.05f;   // justeras senare
-    const float C = 0.05f;   // justeras senare
-    const float D = 0.876f;
-
-    const float xCal = A * x0 + B * y0;
-    const float yCal = C * x0 + D * y0;
+    // --- Soft iron correction matrix ---
+    const float xCal = COMPASS_GAIN_X * x0 + COMPASS_CROSS_XY * y0;
+    const float yCal = COMPASS_CROSS_YX * x0 + COMPASS_GAIN_Y * y0;
 
     float headingDeg = atan2f(yCal, xCal) * 180.0f / PI;
-headingDeg += CompassConfig::HEADING_OFFSET_DEG;
-headingDeg = wrap360(headingDeg);
+    headingDeg += CompassConfig::HEADING_OFFSET_DEG;
+    headingDeg = wrap360(headingDeg);
 
-//  Lägg in correction här
-const float correctedHeading = correctHeading45(headingDeg);
+    //  Lägg in correction här
+    const float correctedHeading = correctHeading45(headingDeg);
 
-//  Lägg in smoothing här
-if (!gCompassValid)
-{
+    //  Lägg in smoothing här
+    if (!gCompassValid)
+  {
     gCompassHeadingDeg = correctedHeading;
     gCompassValid = true;
-}
-else
-{
+  }
+   else
+  {
     const float alpha = 0.25f;
     gCompassHeadingDeg = smoothAngleDeg(gCompassHeadingDeg, correctedHeading, alpha);
-}
+  }
 
     static uint32_t lastCompassPrintMs = 0;
     const uint32_t now = millis();
@@ -176,9 +185,10 @@ else
     if (now - lastCompassPrintMs >= 1000)
     {
         lastCompassPrintMs = now;
+
         //Serial.printf("[CAL] minX=%d maxX=%d minY=%d maxY=%d\n",magMinX, magMaxX, magMinY, magMaxY);
 
-        //Serial.printf("[COMPASS] hdg=%.1f\n", gCompassHeadingDeg);
+        Serial.printf("[COMPASS] hdg=%.1f\n", gCompassHeadingDeg);
 
         //Serial.printf("[RAW] hdg=%.1f\n", headingDeg);
             
@@ -234,6 +244,9 @@ void Navigation::update(SensorData& sensors)
     // --------------------------------------------------------
     // 3. Fill GPS-related sensor fields
     // --------------------------------------------------------
+
+    strcpy(sensors.headingSource, "NONE");
+
     sensors.gpsValid = gps.location.isValid();
     sensors.speedValid = gps.speed.isValid();
 
@@ -288,21 +301,24 @@ void Navigation::update(SensorData& sensors)
     // --------------------------------------------------------
     const float minHeadingSpeedMps = 0.8f;
 
-    if (gps.course.isValid() &&
-        gps.speed.isValid() &&
-        gps.speed.mps() >= minHeadingSpeedMps)
-    {
-        sensors.headingDeg = sensors.courseOverGroundDeg;
-        sensors.headingValid = true;
-    }
-    else if (gCompassValid)
-    {
-        sensors.headingDeg = gCompassHeadingDeg;
-        sensors.headingValid = true;
-    }
-    else
-    {
-        sensors.headingDeg = 0.0f;
-        sensors.headingValid = false;
-    }
+if (gps.course.isValid() &&
+    gps.speed.isValid() &&
+    gps.speed.mps() >= minHeadingSpeedMps)
+{
+    sensors.headingDeg = sensors.courseOverGroundDeg;
+    sensors.headingValid = true;
+    strcpy(sensors.headingSource, "GPS");
+}
+else if (gCompassValid)
+{
+    sensors.headingDeg = gCompassHeadingDeg;
+    sensors.headingValid = true;
+    strcpy(sensors.headingSource, "CMP");
+}
+else
+{
+    sensors.headingDeg = 0.0f;
+    sensors.headingValid = false;
+    strcpy(sensors.headingSource, "NONE");
+}
 }

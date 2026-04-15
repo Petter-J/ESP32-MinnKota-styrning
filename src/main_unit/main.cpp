@@ -66,23 +66,25 @@ static uint32_t readLocalButtons()
 static void printTelemetry(const SystemState& sys)
 {
     DBG_PRINTF(
-        "[TEL] mode=%s hdg=%.1f hdgValid=%d gpsValid=%d spdValid=%d sats=%u lat=%.6f lon=%.6f gpsSpd=%.2f cog=%.1f spdPct=%.1f tgtH=%.1f tgtS=%.1f actT=%.1f actS=%.1f\n",
-        modeToString(sys.mode),
-        sys.sensors.headingDeg,
-        sys.sensors.headingValid ? 1 : 0,
-        sys.sensors.gpsValid ? 1 : 0,
-        sys.sensors.speedValid ? 1 : 0,
-        sys.sensors.satellites,
-        sys.sensors.latitudeDeg,
-        sys.sensors.longitudeDeg,
-        sys.sensors.gpsSpeedMps,
-        sys.sensors.courseOverGroundDeg,
-        sys.sensors.speedPct,
-        sys.targetHeadingDeg,
-        sys.targetSpeedPct,
-        sys.actuators.thrustPct,
-        sys.actuators.steerPct
-    );
+    "[TEL] mode=%s auto=%s hdg=%.1f hdgSrc=%s hdgValid=%d gpsValid=%d spdValid=%d sats=%u lat=%.6f lon=%.6f  gpsSpd=%.2f cog=%.1f spdPct=%.1f tgtH=%.1f tgtS=%.1f actT=%.1f actS=%.1f\n",
+    modeToString(sys.mode),
+    sys.sensors.autoState,
+    sys.sensors.headingDeg,
+    sys.sensors.headingSource,
+    sys.sensors.headingValid ? 1 : 0,
+    sys.sensors.gpsValid ? 1 : 0,
+    sys.sensors.speedValid ? 1 : 0,
+    sys.sensors.satellites,
+    sys.sensors.latitudeDeg,
+    sys.sensors.longitudeDeg,
+    sys.sensors.gpsSpeedMps,
+    sys.sensors.courseOverGroundDeg,
+    sys.sensors.speedPct,
+    sys.targetHeadingDeg,
+    sys.targetSpeedPct,
+    sys.actuators.thrustPct,
+    sys.actuators.steerPct
+);
 }
 // ============================================================
 // Setup
