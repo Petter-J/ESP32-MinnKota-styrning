@@ -13,11 +13,11 @@ static TinyGPSPlus gps;
 static float gCompassHeadingDeg = 0.0f;
 static bool gCompassValid = false;
 
-static constexpr float COMPASS_OFFSET_X = -296.0f;
-static constexpr float COMPASS_OFFSET_Y = -590.0f;
+static constexpr float COMPASS_OFFSET_X = -27.5f;
+static constexpr float COMPASS_OFFSET_Y = -550.5f;
 
-static constexpr float COMPASS_SCALE_X = 1.0f;
-static constexpr float COMPASS_SCALE_Y = 1.230f;
+static constexpr float COMPASS_GAIN_X = 1.164f;
+static constexpr float COMPASS_GAIN_Y = 0.876f;
 
 static int16_t magMinX = 32767;
 static int16_t magMaxX = -32768;
@@ -68,6 +68,59 @@ static bool readCompassRaw(int16_t& x, int16_t& y, int16_t& z)
     return true;
 }
 
+static float correctHeading45(float h)
+{
+    h = wrap360(h);
+
+    // Uppmätt heading -> verklig heading
+    static constexpr float meas[9] = {
+    0.0f,    // verklig 0
+    38.5f,   // verklig 45
+    82.3f,   // verklig 90
+    119.0f,  // verklig 135
+    153.5f,  // verklig 180
+    213.0f,  // verklig 225
+    289.2f,  // verklig 270
+    329.1f,  // verklig 315
+    360.0f   // verklig 360
+};
+    static constexpr float real[9] = {
+        0.0f,
+        45.0f,
+        90.0f,
+        135.0f,
+        180.0f,
+        225.0f,
+        270.0f,
+        315.0f,
+        360.0f
+    };
+
+    float hw = h;
+    if (hw < meas[0])
+    {
+        hw += 360.0f;
+    }
+
+    for (int i = 0; i < 8; ++i)
+    {
+        if (hw >= meas[i] && hw <= meas[i + 1])
+        {
+            const float span = meas[i + 1] - meas[i];
+            if (span <= 0.001f)
+            {
+                return wrap360(real[i]);
+            }
+
+            const float t = (hw - meas[i]) / span;
+            const float corrected = real[i] + t * (real[i + 1] - real[i]);
+            return wrap360(corrected);
+        }
+    }
+
+    return wrap360(h);
+}
+
 static bool updateCompassHeading()
 {
     int16_t x = 0;
@@ -81,40 +134,55 @@ static bool updateCompassHeading()
 
     if (x < magMinX) magMinX = x;
     if (x > magMaxX) magMaxX = x;
-  
+
     if (y < magMinY) magMinY = y;
     if (y > magMaxY) magMaxY = y;
 
-    // Enkel första version:
-    // heading från X/Y, offset från config
-    const float xCal = ((float)x - COMPASS_OFFSET_X) * COMPASS_SCALE_X;
-    const float yCal = ((float)y - COMPASS_OFFSET_Y) * COMPASS_SCALE_Y;
+    // --- Offset ---
+    const float x0 = (float)x - COMPASS_OFFSET_X;
+    const float y0 = (float)y - COMPASS_OFFSET_Y;
+
+    // --- Soft iron matrix (NYTT) ---
+    const float A = 1.164f;
+    const float B = 0.05f;   // justeras senare
+    const float C = 0.05f;   // justeras senare
+    const float D = 0.876f;
+
+    const float xCal = A * x0 + B * y0;
+    const float yCal = C * x0 + D * y0;
 
     float headingDeg = atan2f(yCal, xCal) * 180.0f / PI;
-headingDeg -= 90.0f;
+headingDeg += CompassConfig::HEADING_OFFSET_DEG;
 headingDeg = wrap360(headingDeg);
 
-    headingDeg += CompassConfig::HEADING_OFFSET_DEG;
-    headingDeg = wrap360(headingDeg);
+//  Lägg in correction här
+const float correctedHeading = correctHeading45(headingDeg);
 
-    gCompassHeadingDeg = headingDeg;
+//  Lägg in smoothing här
+if (!gCompassValid)
+{
+    gCompassHeadingDeg = correctedHeading;
     gCompassValid = true;
+}
+else
+{
+    const float alpha = 0.25f;
+    gCompassHeadingDeg = smoothAngleDeg(gCompassHeadingDeg, correctedHeading, alpha);
+}
 
     static uint32_t lastCompassPrintMs = 0;
     const uint32_t now = millis();
+
     if (now - lastCompassPrintMs >= 1000)
     {
         lastCompassPrintMs = now;
+        //Serial.printf("[CAL] minX=%d maxX=%d minY=%d maxY=%d\n",magMinX, magMaxX, magMinY, magMaxY);
 
-   // Serial.printf(
-    //"[CAL] minX=%d maxX=%d minY=%d maxY=%d\n",
-    //magMinX, magMaxX, magMinY, magMaxY
-    //);
+        //Serial.printf("[COMPASS] hdg=%.1f\n", gCompassHeadingDeg);
 
-    Serial.printf("[TEST] x=%.1f y=%.1f hdg=%.1f\n", xCal, yCal, gCompassHeadingDeg);
-
+        //Serial.printf("[RAW] hdg=%.1f\n", headingDeg);
+            
     }
-
 
     return true;
 }

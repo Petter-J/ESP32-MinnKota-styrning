@@ -82,7 +82,7 @@ namespace CompassConfig
     static constexpr uint32_t FREQ_HZ = 100000;
 
     // Enligt modulens orientering
-    static constexpr float HEADING_OFFSET_DEG = 180.0f;
+    static constexpr float HEADING_OFFSET_DEG = 134.0f;
 }
 
 // ============================================================
