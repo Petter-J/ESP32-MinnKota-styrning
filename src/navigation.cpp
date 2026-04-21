@@ -10,7 +10,7 @@ bool Navigation::begin()
     return true;
 }
 
-void Navigation::update(SensorData& sensors)
+void Navigation::update(SensorData &sensors)
 {
     GpsFix gpsFix{};
     ImuHeading imuHeading{};
@@ -30,14 +30,16 @@ void Navigation::update(SensorData& sensors)
     }
 
     sensors.satellites = gpsFix.satellites;
-
+    //
     if (gpsFix.speedValid)
     {
         sensors.gpsSpeedMps = gpsFix.speedMps;
+        sensors.speedMps = gpsFix.speedMps; // 🔹 NY
     }
     else
     {
         sensors.gpsSpeedMps = 0.0f;
+        sensors.speedMps = 0.0f; // 🔹 NY
     }
 
     if (gpsFix.courseValid)
@@ -52,8 +54,10 @@ void Navigation::update(SensorData& sensors)
     const float maxSpeedMps = 2.5f;
     float pct = (sensors.gpsSpeedMps / maxSpeedMps) * 100.0f;
 
-    if (pct < 0.0f) pct = 0.0f;
-    if (pct > 100.0f) pct = 100.0f;
+    if (pct < 0.0f)
+        pct = 0.0f;
+    if (pct > 100.0f)
+        pct = 100.0f;
 
     sensors.speedPct = pct;
 
