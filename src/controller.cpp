@@ -36,6 +36,12 @@ float PidController::update(float error, float dtSec)
 
     _integral += error * dtSec;
 
+    // Anti-windup
+    if (_integral * _ki > _outMax)
+        _integral = _outMax / (_ki != 0.0f ? _ki : 1.0f);
+    else if (_integral * _ki < _outMin)
+        _integral = _outMin / (_ki != 0.0f ? _ki : 1.0f);
+
     float derivative = 0.0f;
     if (_first)
     {
@@ -83,8 +89,6 @@ void MainController::onModeChanged(SystemMode newMode, SystemState &sys)
         break;
 
     case SystemMode::MANUAL:
-        sys.manualSteerPct = 0.0f;
-
         if (sys.manualThrustPct < ManualControlConfig::THRUST_START_MIN_PCT)
         {
             sys.manualThrustPct = ManualControlConfig::THRUST_START_MIN_PCT;
@@ -92,8 +96,19 @@ void MainController::onModeChanged(SystemMode newMode, SystemState &sys)
         break;
 
     case SystemMode::AUTO:
+        // Ta över aktuell riktning alltid
         sys.targetHeadingDeg = sys.sensors.headingDeg;
-        sys.targetSpeedPct = sys.sensors.speedPct;
+
+        // Om vi redan rör oss → behåll fart
+        if (sys.sensors.speedMps >= AutoConfig::MIN_GPS_COURSE_SPEED_MPS)
+        {
+            sys.targetSpeedPct = sys.sensors.speedPct;
+        }
+        else
+        {
+            // Står still → börja på start-thrust
+            sys.targetSpeedPct = AutoConfig::START_THRUST_PCT;
+        }
         break;
 
     case SystemMode::ANCHOR:
@@ -242,12 +257,12 @@ void applyCommand(const RemoteCommand &cmd, SystemState &sys, MainController &co
 
     if (cmd.hasManualThrust)
     {
-        sys.actuators.thrustPct = clampf(cmd.manualThrustPct, Limits::THRUST_MIN_PCT, Limits::THRUST_MAX_PCT);
+        sys.manualThrustPct = clampf(cmd.manualThrustPct, Limits::THRUST_MIN_PCT, Limits::THRUST_MAX_PCT);
     }
 
     if (cmd.hasManualSteer)
     {
-        sys.actuators.steerPct = clampf(cmd.manualSteerPct, Limits::STEER_MIN_PCT, Limits::STEER_MAX_PCT);
+        sys.manualSteerPct = clampf(cmd.manualSteerPct, Limits::STEER_MIN_PCT, Limits::STEER_MAX_PCT);
     }
 
     if (cmd.hasTargetHeading)
