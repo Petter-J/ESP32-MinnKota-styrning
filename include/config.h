@@ -1,7 +1,6 @@
 #pragma once
 #include <Arduino.h>
 
-
 // ============================================================
 // MANUAL CONTROL
 // ============================================================
@@ -64,8 +63,8 @@ namespace PinConfig
 }
 
 // ============================================================
-// GPS / COMPASS CONFIG 
-// ============================================================    
+// GPS / IMU CONFIG
+// ============================================================
 namespace GpsConfig
 {
     // UART för GPS
@@ -76,13 +75,13 @@ namespace GpsConfig
 
 namespace CompassConfig
 {
-    // I2C för QMC5883
+    // I2C för BNO085
     static constexpr int SDA_PIN = 21;
     static constexpr int SCL_PIN = 22;
-    static constexpr uint32_t FREQ_HZ = 100000;
+    static constexpr uint32_t FREQ_HZ = 400000;
 
-    // Enligt modulens orientering
-    static constexpr float HEADING_OFFSET_DEG = 134.0f;
+    // Justeras senare efter verklig montering/orientering
+    static constexpr float HEADING_OFFSET_DEG = 0.0f;
 }
 
 // ============================================================
@@ -93,8 +92,9 @@ namespace RampConfig
     static constexpr float THRUST_RAMP_TIME_MS = 600.0f;
     static constexpr float STEER_RAMP_TIME_MS  = 400.0f;
 }
+
 // ============================================================
-// MOTOR CONFIG 
+// MOTOR CONFIG
 // ============================================================
 namespace MotorConfig
 {
@@ -105,13 +105,11 @@ namespace MotorConfig
 // ============================================================
 // AUTO CONFIG
 // ============================================================
-
 namespace AutoConfig
 {
-    static constexpr float MIN_GPS_COURSE_SPEED_MPS = 0.5f;
+    static constexpr float MIN_GPS_COURSE_SPEED_MPS = 0.8f;
     static constexpr float START_THRUST_PCT = 20.0f;
 }
-
 
 // ============================================================
 // PWM / LEDC CONFIG
@@ -176,7 +174,6 @@ namespace SimConfig
     static constexpr float SPEED_RESPONSE = 1.5f;
     static constexpr float MAX_VIRTUAL_SPEED_MPS = 1.5f;
 }
-
 
 // ============================================================
 // SAFETY

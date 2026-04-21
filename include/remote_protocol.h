@@ -15,6 +15,7 @@ struct StatusPacket
     uint16_t targetHeadingDeg10 = 0; // 0..3600  (grader * 10)
     uint8_t satellites = 0;
     uint8_t flags = 0;               // bit0 = gpsValid
+    int8_t steerState = 0;           // -1 = vänster, 0 = ingen, 1 = höger
     uint8_t counter = 0;
 };
 

@@ -125,7 +125,7 @@ void setup()
 
     gSys.mode = SystemMode::STOP;
     gSys.motorsEnabled = true;
-    gSys.simulatorEnabled = true;
+    gSys.simulatorEnabled = false;
     gSys.targetHeadingDeg = 0.0f;
     gSys.targetSpeedPct = 0.0f;
     gSys.manualThrustPct = 0.0f;
@@ -218,6 +218,19 @@ pkt.headingDeg10 = (uint16_t)roundf(gSys.sensors.headingDeg * 10.0f);
 pkt.targetHeadingDeg10 = (uint16_t)roundf(gSys.targetHeadingDeg * 10.0f);
 
 pkt.satellites = (uint8_t)gSys.sensors.satellites;
+
+if (gSys.manualSteerPct < -1.0f)
+{
+    pkt.steerState = -1;
+}
+else if (gSys.manualSteerPct > 1.0f)
+{
+    pkt.steerState = 1;
+}
+else
+{
+    pkt.steerState = 0;
+}
 
 pkt.flags = 0;
 if (gSys.sensors.gpsValid)

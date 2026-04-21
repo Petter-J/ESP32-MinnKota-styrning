@@ -4,13 +4,7 @@
 #include <esp_now.h>
 #include <cstring>
 
-// ------------------------------------------------------------
-// Packet format from remote -> head unit
-// ------------------------------------------------------------
-struct RemotePacket
-{
-    uint32_t buttonMask = 0;
-};
+
 
 // ------------------------------------------------------------
 // Static instance pointer for ESP-NOW callback
@@ -18,10 +12,10 @@ struct RemotePacket
 static RemoteEspNow* s_instance = nullptr;
 
 // ------------------------------------------------------------
-// MAC address of remote_unit (DISPLAY/REMOTE)
-// Fyll i rätt MAC här från remote_unit Serial.print(WiFi.macAddress())
+// MAC addresses of remotes
 // ------------------------------------------------------------
-static uint8_t s_remotePeerMac[6] = { 0xA0, 0xB7, 0x65, 0x06, 0xC1, 0x14 };
+static uint8_t s_remote1PeerMac[6] = { 0xA0, 0xB7, 0x65, 0x06, 0xC1, 0x14 }; // gamla remote
+static uint8_t s_remote2PeerMac[6] = { 0x20, 0x6E, 0xF1, 0x9B, 0xB3, 0x08 }; // remote2 S3
 
 // ------------------------------------------------------------
 // ESP-NOW receive callback
@@ -61,15 +55,23 @@ void RemoteEspNow::begin()
 
     esp_now_register_recv_cb(onEspNowRecv);
 
-    // Lägg till peer för att kunna skicka status tillbaka
+    // Lägg till remote 1
     esp_now_peer_info_t peerInfo = {};
-    memcpy(peerInfo.peer_addr, s_remotePeerMac, 6);
-    peerInfo.channel = 0;      // samma kanal
+    memcpy(peerInfo.peer_addr, s_remote1PeerMac, 6);
+    peerInfo.channel = 0;
     peerInfo.encrypt = false;
 
-    // Om MAC inte är satt korrekt kommer add_peer sannolikt misslyckas
-    esp_err_t addPeerResult = esp_now_add_peer(&peerInfo);
-    DBG_PRINTF("add_peer result = %d\n", addPeerResult);
+    esp_err_t addPeerResult1 = esp_now_add_peer(&peerInfo);
+    DBG_PRINTF("add_peer remote1 result = %d\n", addPeerResult1);
+
+    // Lägg till remote 2
+    memset(&peerInfo, 0, sizeof(peerInfo));
+    memcpy(peerInfo.peer_addr, s_remote2PeerMac, 6);
+    peerInfo.channel = 0;
+    peerInfo.encrypt = false;
+
+    esp_err_t addPeerResult2 = esp_now_add_peer(&peerInfo);
+    DBG_PRINTF("add_peer remote2 result = %d\n", addPeerResult2);
 
     s_instance = this;
     _initialized = true;
@@ -111,9 +113,17 @@ bool RemoteEspNow::sendStatus(const StatusPacket& status)
     if (!_initialized)
         return false;
 
-    esp_err_t result = esp_now_send(s_remotePeerMac,
-                                    reinterpret_cast<const uint8_t*>(&status),
-                                    sizeof(StatusPacket));
+    const esp_err_t result1 = esp_now_send(
+        s_remote1PeerMac,
+        reinterpret_cast<const uint8_t*>(&status),
+        sizeof(StatusPacket)
+    );
 
-    return (result == ESP_OK);
+    const esp_err_t result2 = esp_now_send(
+        s_remote2PeerMac,
+        reinterpret_cast<const uint8_t*>(&status),
+        sizeof(StatusPacket)
+    );
+
+    return (result1 == ESP_OK) || (result2 == ESP_OK);
 }

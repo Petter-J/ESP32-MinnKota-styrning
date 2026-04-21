@@ -1,79 +1,61 @@
 # ESP32-MinnKota-styrning
-
-Ipilot liknande system med esp32 gps/kompass Foxeer
-
-## 🔧 Git Fusklapp - Spara din kod till GitHub
-
+iPilot-liknande system med ESP32, GPS/kompass Foxeer
+---
+## 🔧 Git Fusklapp – Spara din kod till GitHub
 ### 📌 Vad är Git?
 Git håller koll på alla ändringar i din kod. GitHub är där du sparar den i molnet.
-
 ---
-
 ### 🚀 Första gången (redan gjort, men för referens)
-
 ```bash
 git init                    # Initialisera Git (redan gjort)
 git add .                   # Lägg till alla filer
 git commit -m "Initial"     # Skapa första version
 git push -u origin main     # Skicka till GitHub första gången
 ```
-
 ---
-
 ### 💾 Spara ändringar regelbundet
-
 Gör detta när du gjort ändringar i din kod:
-
 ```bash
 git status                  # (Valfritt) Se vad du ändrat
 git add .                   # Lägg till alla ändrade filer
 git commit -m "Beskrivning" # Spara versionen med en beskrivning
 git push                    # Skicka till GitHub
 ```
-
 Exempel på bra beskrivningar:
-
 ```bash
 git commit -m "Lägg till motor-styrning"
 git commit -m "Fixa GPS-läsning"
 git commit -m "Uppdatera kompass-kalibrering"
 git commit -m "Bugfix: display visar rätt värden"
 ```
-
 ---
-
+### 💾 Hämta ändringar innan varje start
+```bash
+git pull
+```
+---
 ### 📖 Användbara kommandon
-
 | Kommando | Vad det gör |
-|----------|-----------|
+|----------|-------------|
 | `git status` | Visar vilka filer du ändrat |
-| `git log --oneline` | Visar din version-historia |
+| `git log --oneline` | Visar din versionshistorik |
 | `git pull` | Hämtar senaste ändringar från GitHub |
 | `git branch` | Visar vilken branch du är på |
 | `git diff` | Visar exakt vad du ändrat |
-
 ---
-
 ### ⚠️ Viktiga tips
-
 - **Commita ofta!** Små ändringar är bättre än stora
 - **Skriv tydliga meddelanden** så du minns vad du gjorde senare
 - **Pusha före du stänger datorn** så har du backup på GitHub
 - **Kolla `git status` före push** för att se vad som sparas
-
 ---
-
 ### 🆘 Vanliga problem
-
 **"fatal: repository not found"**
 - Kontrollera att du är i rätt mapp
 - Kolla att repo-namnet är rätt på GitHub
-
 **"nothing to commit"**
 - Du har inte gjort några ändringar, eller de är redan sparade
-
 **Missade att commita något?**
-
 ```bash
 git add .
 git commit --amend          # Lägger till i sista commit
