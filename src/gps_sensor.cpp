@@ -7,7 +7,7 @@ bool GpsSensor::begin()
     return true;
 }
 
-void GpsSensor::update(GpsFix& out)
+void GpsSensor::update(GpsFix &out)
 {
     while (_serial.available())
     {
@@ -17,7 +17,7 @@ void GpsSensor::update(GpsFix& out)
 
     out.locationValid = _gps.location.isValid();
     out.speedValid = _gps.speed.isValid();
-    out.courseValid = _gps.course.isValid();
+    out.courseValid = false;
 
     if (out.locationValid)
     {
@@ -29,11 +29,40 @@ void GpsSensor::update(GpsFix& out)
     {
         out.speedMps = _gps.speed.mps();
     }
-
-    if (out.courseValid)
+    else
     {
-        out.courseDeg = _gps.course.deg();
+        out.speedMps = 0.0f;
     }
 
-    out.satellites = _gps.satellites.value();
+    if (_gps.course.isValid() &&
+        out.speedValid &&
+        out.speedMps >= AutoConfig::MIN_GPS_COURSE_SPEED_MPS)
+    {
+        const float course = _gps.course.deg();
+
+        if (course >= 0.0f && course <= 360.0f)
+        {
+            out.courseDeg = course;
+            out.courseValid = true;
+        }
+        else
+        {
+            out.courseDeg = 0.0f;
+            out.courseValid = false;
+        }
+    }
+    else
+    {
+        out.courseDeg = 0.0f;
+        out.courseValid = false;
+    }
+
+    if (_gps.satellites.isValid())
+    {
+        out.satellites = _gps.satellites.value();
+    }
+    else
+    {
+        out.satellites = 0;
+    }
 }
