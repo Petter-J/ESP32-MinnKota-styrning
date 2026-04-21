@@ -78,16 +78,8 @@ static bool updateImuHeading()
             headingDeg += CompassConfig::HEADING_OFFSET_DEG;
             headingDeg = wrap360(headingDeg);
 
-            if (!gImuValid)
-            {
-                gImuHeadingDeg = headingDeg;
-                gImuValid = true;
-            }
-            else
-            {
-                const float alpha = 0.20f;
-                gImuHeadingDeg = smoothAngleDeg(gImuHeadingDeg, headingDeg, alpha);
-            }
+            gImuHeadingDeg = headingDeg;
+            gImuValid = true;
         }
     }
 
@@ -109,7 +101,7 @@ static bool updateImuHeading()
     if (now - lastImuPrintMs >= 1000)
     {
         lastImuPrintMs = now;
-        Serial.printf("[IMU] hdg=%.1f\n", gImuHeadingDeg);
+        Serial.printf("[IMU] hdg=%.1f acc=%u\n", gImuHeadingDeg, sensorValue.status);
     }
 
     return true;

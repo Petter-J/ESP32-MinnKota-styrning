@@ -36,16 +36,10 @@ static const char* modeText(uint8_t mode)
     }
 }
 
-static const char* steerArrow(uint32_t buttonMask)
+static const char* steerArrow(int8_t steerState)
 {
-    constexpr uint32_t LEFT_BIT  = (1UL << 6); // STEER_LEFT
-    constexpr uint32_t RIGHT_BIT = (1UL << 7); // STEER_RIGHT
-
-    const bool left  = (buttonMask & LEFT_BIT) != 0;
-    const bool right = (buttonMask & RIGHT_BIT) != 0;
-
-    if (left && !right)  return "STEER: <--|";
-    if (right && !left)  return "STEER:    |-->";
+    if (steerState < 0) return "STEER: <--|";
+    if (steerState > 0) return "STEER:    |-->";
     return "STEER:    |";
 }
 
@@ -132,7 +126,7 @@ void display_update(const StatusPacket& status, bool hasStatus, uint32_t buttonM
 
     if (status.mode == 1) // MANUAL
     {
-        display.print(steerArrow(buttonMask));
+        display.print(steerArrow(status.steerState));
     }
     else
     {

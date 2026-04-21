@@ -78,10 +78,10 @@ namespace CompassConfig
     // I2C för BNO085
     static constexpr int SDA_PIN = 21;
     static constexpr int SCL_PIN = 22;
-    static constexpr uint32_t FREQ_HZ = 400000;
+    static constexpr uint32_t FREQ_HZ = 100000;
 
     // Justeras senare efter verklig montering/orientering
-    static constexpr float HEADING_OFFSET_DEG = 0.0f;
+    static constexpr float HEADING_OFFSET_DEG = -90.0f;
 }
 
 // ============================================================

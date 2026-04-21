@@ -4,8 +4,6 @@
 #include <esp_now.h>
 #include <cstring>
 
-
-
 // ------------------------------------------------------------
 // Static instance pointer for ESP-NOW callback
 // ------------------------------------------------------------
@@ -20,20 +18,27 @@ static uint8_t s_remote2PeerMac[6] = { 0x20, 0x6E, 0xF1, 0x9B, 0xB3, 0x08 }; // 
 // ------------------------------------------------------------
 // ESP-NOW receive callback
 // ------------------------------------------------------------
-static void onEspNowRecv(const uint8_t* mac, const uint8_t* data, int len)
+void onEspNowRecv(const uint8_t* mac, const uint8_t* data, int len)
 {
-    (void)mac;
-
     if (s_instance == nullptr)
         return;
 
-    if (data == nullptr || len != (int)sizeof(RemotePacket))
+    if (mac == nullptr || data == nullptr || len != (int)sizeof(RemotePacket))
         return;
 
     RemotePacket pkt;
     memcpy(&pkt, data, sizeof(RemotePacket));
 
-    s_instance->setLatestButtonMask(pkt.buttonMask, millis());
+    const uint32_t now = millis();
+
+    if (memcmp(mac, s_remote1PeerMac, 6) == 0)
+    {
+        s_instance->setRemote1Mask(pkt.buttonMask, now);
+    }
+    else if (memcmp(mac, s_remote2PeerMac, 6) == 0)
+    {
+        s_instance->setRemote2Mask(pkt.buttonMask, now);
+    }
 }
 
 // ------------------------------------------------------------
@@ -41,12 +46,15 @@ static void onEspNowRecv(const uint8_t* mac, const uint8_t* data, int len)
 // ------------------------------------------------------------
 void RemoteEspNow::begin()
 {
-    _latestButtonMask = 0;
-    _hasNewData = false;
-    _lastRxTimeMs = 0;
     _initialized = false;
 
+    _remote1Mask = 0;
+    _remote2Mask = 0;
+    _remote1LastRxTimeMs = 0;
+    _remote2LastRxTimeMs = 0;
+
     WiFi.mode(WIFI_STA);
+    WiFi.disconnect();
 
     if (esp_now_init() != ESP_OK)
     {
@@ -77,35 +85,32 @@ void RemoteEspNow::begin()
     _initialized = true;
 }
 
-bool RemoteEspNow::update(uint32_t& outButtonMask)
+uint32_t RemoteEspNow::getCombinedMask(uint32_t nowMs) const
 {
     if (!_initialized)
-        return false;
+        return 0;
 
-    if (!_hasNewData)
-        return false;
-
-    outButtonMask = _latestButtonMask;
-    _hasNewData = false;
-    return true;
-}
-
-uint32_t RemoteEspNow::getLatestMask() const
-{
-    return _latestButtonMask;
-}
-
-bool RemoteEspNow::isAlive(uint32_t nowMs) const
-{
     static constexpr uint32_t TIMEOUT_MS = 500;
-    return (nowMs - _lastRxTimeMs) < TIMEOUT_MS;
+
+    const uint32_t remote1Mask =
+        ((nowMs - _remote1LastRxTimeMs) < TIMEOUT_MS) ? _remote1Mask : 0;
+
+    const uint32_t remote2Mask =
+        ((nowMs - _remote2LastRxTimeMs) < TIMEOUT_MS) ? _remote2Mask : 0;
+
+    return remote1Mask | remote2Mask;
 }
 
-void RemoteEspNow::setLatestButtonMask(uint32_t buttonMask, uint32_t rxTimeMs)
+void RemoteEspNow::setRemote1Mask(uint32_t buttonMask, uint32_t rxTimeMs)
 {
-    _latestButtonMask = buttonMask;
-    _lastRxTimeMs = rxTimeMs;
-    _hasNewData = true;
+    _remote1Mask = buttonMask;
+    _remote1LastRxTimeMs = rxTimeMs;
+}
+
+void RemoteEspNow::setRemote2Mask(uint32_t buttonMask, uint32_t rxTimeMs)
+{
+    _remote2Mask = buttonMask;
+    _remote2LastRxTimeMs = rxTimeMs;
 }
 
 bool RemoteEspNow::sendStatus(const StatusPacket& status)

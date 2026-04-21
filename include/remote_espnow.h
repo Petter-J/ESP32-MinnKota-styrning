@@ -1,5 +1,5 @@
 #pragma once
-#include <Arduino.h>
+
 #include "types.h"
 
 class RemoteEspNow
@@ -7,17 +7,21 @@ class RemoteEspNow
 public:
     void begin();
 
-    bool update(uint32_t& outButtonMask);
-    uint32_t getLatestMask() const;
-    bool isAlive(uint32_t nowMs) const;
-
-    void setLatestButtonMask(uint32_t buttonMask, uint32_t rxTimeMs);
-
     bool sendStatus(const StatusPacket& status);
 
+    uint32_t getCombinedMask(uint32_t nowMs) const;
+
 private:
+    friend void onEspNowRecv(const uint8_t* mac, const uint8_t* data, int len);
+
+    void setRemote1Mask(uint32_t buttonMask, uint32_t rxTimeMs);
+    void setRemote2Mask(uint32_t buttonMask, uint32_t rxTimeMs);
+
     bool _initialized = false;
-    uint32_t _latestButtonMask = 0;
-    bool _hasNewData = false;
-    uint32_t _lastRxTimeMs = 0;
+
+    uint32_t _remote1Mask = 0;
+    uint32_t _remote2Mask = 0;
+
+    uint32_t _remote1LastRxTimeMs = 0;
+    uint32_t _remote2LastRxTimeMs = 0;
 };

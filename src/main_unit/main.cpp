@@ -147,7 +147,6 @@ void loop()
     static uint32_t lastPrintMs = 0;
     static uint32_t lastHeartbeatMs = 0;
     static bool ledState = false;
-    static uint32_t remoteMask = 0;
 
     const uint32_t now = millis();
 
@@ -167,97 +166,93 @@ void loop()
     lastMainMs = now;
 
     // 1. Read local buttons
-const uint32_t localMask = readLocalButtons();
+    const uint32_t localMask = readLocalButtons();
 
-// 2. Read remote buttons if new data exists
-uint32_t newRemoteMask = 0;
-if (gRemote.update(newRemoteMask))
-{
-    remoteMask = newRemoteMask;
-}
+    // 2. Read ALL remotes (combined inside RemoteEspNow)
+    const uint32_t remoteMask = gRemote.getCombinedMask(now);
 
-// timeout
-if (!gRemote.isAlive(now))
-{
-    remoteMask = 0;
-}
+    // 3. Combine all inputs
+    const uint32_t effectiveMask = localMask | remoteMask;
 
-// kombinera
-const uint32_t effectiveMask = localMask | remoteMask;
+    // 4. Store command
+    gSys.lastCommand.buttonMask = effectiveMask;
+    gSys.lastCommand.valid = true;
+    gSys.lastCommand.timestampMs = now;
 
-gSys.lastCommand.buttonMask = effectiveMask;
-gSys.lastCommand.valid = true;
-gSys.lastCommand.timestampMs = now;
+    // 5. Interpret buttons
+    const ButtonOutput btn = gButtons.update(effectiveMask, now);
 
-// 3. Interpret buttons centrally
-const ButtonOutput btn = gButtons.update(effectiveMask, now);
+    // 6. Apply input policy
+    gInputLogic.applyButtons(btn, now, gSys, gController);
 
-// 4. Apply input policy
-gInputLogic.applyButtons(btn, now, gSys, gController);
+    // 7. Apply safety
+    gInputLogic.applySafety(now, gSys, gController);
 
-// 5. Apply mode-dependent safety
-gInputLogic.applySafety(now, gSys, gController);
+    // 8. Control update
+    if (now - lastControlMs >= TimingConfig::CONTROL_INTERVAL_MS)
+    {
+        const float dtSec = (now - lastControlMs) / 1000.0f;
+        lastControlMs = now;
 
-// 6. Control update
-if (now - lastControlMs >= TimingConfig::CONTROL_INTERVAL_MS)
-{
-    const float dtSec = (now - lastControlMs) / 1000.0f;
-    lastControlMs = now;
+        gController.update(dtSec, gSys);
+        gMotors.apply(gSys.actuators, gSys.motorsEnabled, dtSec);
+    }
 
-    gController.update(dtSec, gSys);
-    gMotors.apply(gSys.actuators, gSys.motorsEnabled, dtSec);
-}
+    // 9. Send status to remotes
+    StatusPacket pkt;
+    pkt.mode = (uint8_t)gSys.mode;
+    pkt.manualThrustPct = (uint8_t)roundf(gSys.manualThrustPct);
+    pkt.targetSpeedPct = (uint8_t)roundf(gSys.targetSpeedPct);
 
-// 6.5 Send status to remote
-StatusPacket pkt;
-pkt.mode = (uint8_t)gSys.mode;
-pkt.manualThrustPct = (uint8_t)roundf(gSys.manualThrustPct);
-pkt.targetSpeedPct = (uint8_t)roundf(gSys.targetSpeedPct);
+    pkt.headingDeg10 = (uint16_t)roundf(gSys.sensors.headingDeg * 10.0f);
+    pkt.targetHeadingDeg10 = (uint16_t)roundf(gSys.targetHeadingDeg * 10.0f);
 
-pkt.headingDeg10 = (uint16_t)roundf(gSys.sensors.headingDeg * 10.0f);
-pkt.targetHeadingDeg10 = (uint16_t)roundf(gSys.targetHeadingDeg * 10.0f);
+    pkt.satellites = (uint8_t)gSys.sensors.satellites;
 
-pkt.satellites = (uint8_t)gSys.sensors.satellites;
+    // 🔥 FIX: steer baserat på knapp, inte motor
+    constexpr uint32_t LEFT_BIT  = (1UL << 6);
+constexpr uint32_t RIGHT_BIT = (1UL << 7);
 
-if (gSys.manualSteerPct < -1.0f)
+const bool left  = (effectiveMask & LEFT_BIT) != 0;
+const bool right = (effectiveMask & RIGHT_BIT) != 0;
+
+if (left && !right)
 {
     pkt.steerState = -1;
 }
-else if (gSys.manualSteerPct > 1.0f)
+else if (right && !left)
 {
     pkt.steerState = 1;
 }
 else
 {
-    pkt.steerState = 0;
+    pkt.steerState = 0; // båda eller ingen
 }
 
-pkt.flags = 0;
-if (gSys.sensors.gpsValid)
-{
-    pkt.flags |= STATUS_FLAG_GPS_VALID;
-}
+    pkt.flags = 0;
+    if (gSys.sensors.gpsValid)
+    {
+        pkt.flags |= STATUS_FLAG_GPS_VALID;
+    }
 
-pkt.counter = (uint8_t)gStatusCounter++;
+    pkt.counter = (uint8_t)gStatusCounter++;
 
-gRemote.sendStatus(pkt);
+    gRemote.sendStatus(pkt);
 
-    // 7. Sensor update
-if (useSimulator && now - lastSimMs >= TimingConfig::SIM_INTERVAL_MS)
-{
-    const float dtSec = (now - lastSimMs) / 1000.0f;
-    lastSimMs = now;
+    // 10. Sensor update
+    if (useSimulator && now - lastSimMs >= TimingConfig::SIM_INTERVAL_MS)
+    {
+        const float dtSec = (now - lastSimMs) / 1000.0f;
+        lastSimMs = now;
 
-    gSimulator.update(dtSec, gSys.actuators, gSys.sensors);
-}
-else if (!useSimulator)
-{
-  gNavigation.update(gSys.sensors);
-}
+        gSimulator.update(dtSec, gSys.actuators, gSys.sensors);
+    }
+    else if (!useSimulator)
+    {
+        gNavigation.update(gSys.sensors);
+    }
 
-
-
-    // 8. Telemetry
+    // 11. Telemetry
     if (now - lastPrintMs >= TimingConfig::PRINT_INTERVAL_MS)
     {
         lastPrintMs = now;
