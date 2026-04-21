@@ -2,6 +2,13 @@
 #include "config.h"
 #include <cstring>
 
+static float speedPctToMps(float pct)
+{
+    const float maxSpeedMps = AutoConfig::MAX_SPEED_MPS;
+    const float clampedPct = clampf(pct, 0.0f, 100.0f);
+    return (clampedPct / 100.0f) * maxSpeedMps;
+}
+
 void PidController::setTunings(float kp, float ki, float kd)
 {
     _kp = kp;
@@ -24,7 +31,8 @@ void PidController::reset()
 
 float PidController::update(float error, float dtSec)
 {
-    if (dtSec <= 0.0f) return 0.0f;
+    if (dtSec <= 0.0f)
+        return 0.0f;
 
     _integral += error * dtSec;
 
@@ -51,152 +59,166 @@ void MainController::begin()
     _headingPid.setTunings(
         ControlDefaults::HEADING_KP,
         ControlDefaults::HEADING_KI,
-        ControlDefaults::HEADING_KD
-    );
+        ControlDefaults::HEADING_KD);
     _headingPid.setOutputLimits(-100.0f, 100.0f);
 
     _speedPid.setTunings(
         ControlDefaults::SPEED_KP,
         ControlDefaults::SPEED_KI,
-        ControlDefaults::SPEED_KD
-    );
+        ControlDefaults::SPEED_KD);
     _speedPid.setOutputLimits(0.0f, 100.0f);
 }
 
-void MainController::onModeChanged(SystemMode newMode, SystemState& sys)
+void MainController::onModeChanged(SystemMode newMode, SystemState &sys)
 {
     _headingPid.reset();
     _speedPid.reset();
 
     switch (newMode)
     {
-        case SystemMode::STOP:
-    sys.targetSpeedPct  = 0.0f;
-    sys.manualThrustPct = 0.0f;
-    sys.manualSteerPct  = 0.0f;
-    break;
+    case SystemMode::STOP:
+        sys.targetSpeedPct = 0.0f;
+        sys.manualThrustPct = 0.0f;
+        sys.manualSteerPct = 0.0f;
+        break;
 
-        case SystemMode::MANUAL:
-    sys.manualSteerPct = 0.0f;
+    case SystemMode::MANUAL:
+        sys.manualSteerPct = 0.0f;
 
-    if (sys.manualThrustPct < ManualControlConfig::THRUST_START_MIN_PCT)
-    {
-        sys.manualThrustPct = ManualControlConfig::THRUST_START_MIN_PCT;
-    }
-    break;
+        if (sys.manualThrustPct < ManualControlConfig::THRUST_START_MIN_PCT)
+        {
+            sys.manualThrustPct = ManualControlConfig::THRUST_START_MIN_PCT;
+        }
+        break;
 
-        case SystemMode::AUTO:
-            sys.targetHeadingDeg = sys.sensors.headingDeg;
-            sys.targetSpeedPct   = sys.sensors.speedPct;
-            break;
+    case SystemMode::AUTO:
+        sys.targetHeadingDeg = sys.sensors.headingDeg;
+        sys.targetSpeedPct = sys.sensors.speedPct;
+        break;
 
-        case SystemMode::ANCHOR:
-            break;
+    case SystemMode::ANCHOR:
+        break;
     }
 }
 
-void MainController::update(float dtSec, SystemState& sys)
+void MainController::update(float dtSec, SystemState &sys)
 {
     switch (sys.mode)
     {
-        case SystemMode::STOP:
-            sys.actuators = computeStop(sys);
-            break;
+    case SystemMode::STOP:
+        sys.actuators = computeStop(sys);
+        break;
 
-        case SystemMode::MANUAL:
-            sys.actuators = computeManual(sys);
-            break;
+    case SystemMode::MANUAL:
+        sys.actuators = computeManual(sys);
+        break;
 
-        case SystemMode::AUTO:
-            sys.actuators = computeAuto(dtSec, sys);
-            break;
+    case SystemMode::AUTO:
+        sys.actuators = computeAuto(dtSec, sys);
+        break;
 
-        case SystemMode::ANCHOR:
-            sys.actuators = computeAnchor(dtSec, sys);
-            break;
+    case SystemMode::ANCHOR:
+        sys.actuators = computeAnchor(dtSec, sys);
+        break;
     }
 }
 
-ActuatorCommand MainController::computeStop(const SystemState& sys)
+ActuatorCommand MainController::computeStop(const SystemState &sys)
 {
     (void)sys;
 
     ActuatorCommand out;
     out.thrustPct = 0.0f;
-    out.steerPct  = 0.0f;
-    //strcpy(((SystemState&)sys).sensors.autoState, "STOP");
+    out.steerPct = 0.0f;
+    // strcpy(((SystemState&)sys).sensors.autoState, "STOP");
     return out;
 }
 
-ActuatorCommand MainController::computeManual(const SystemState& sys)
+ActuatorCommand MainController::computeManual(const SystemState &sys)
 {
     ActuatorCommand out;
     out.thrustPct = clampf(sys.manualThrustPct, Limits::THRUST_MIN_PCT, Limits::THRUST_MAX_PCT);
-    out.steerPct  = clampf(sys.manualSteerPct, Limits::STEER_MIN_PCT, Limits::STEER_MAX_PCT);
-    //strcpy(((SystemState&)sys).sensors.autoState, "MAN");
+    out.steerPct = clampf(sys.manualSteerPct, Limits::STEER_MIN_PCT, Limits::STEER_MAX_PCT);
+    // strcpy(((SystemState&)sys).sensors.autoState, "MAN");
     return out;
 }
 
-ActuatorCommand MainController::computeAuto(float dtSec, const SystemState& sys)
+ActuatorCommand MainController::computeAuto(float dtSec, const SystemState &sys)
 {
     ActuatorCommand out;
-    strcpy(((SystemState&)sys).sensors.autoState, "RUN");
+    strcpy(((SystemState &)sys).sensors.autoState, "RUN");
 
     // AUTO-startläge:
     // Om båten går för långsamt är GPS course opålitlig.
     // Då ger vi en fast start-thrust och använder befintlig heading som stöd
     // tills båten fått upp fart.
-    if (sys.sensors.gpsSpeedMps < AutoConfig::MIN_GPS_COURSE_SPEED_MPS)
+    const float currentSpeedMps = sys.sensors.speedMps;
+
+    if (currentSpeedMps < AutoConfig::MIN_GPS_COURSE_SPEED_MPS)
     {
-        strcpy(((SystemState&)sys).sensors.autoState, "START");
+        strcpy(((SystemState &)sys).sensors.autoState, "START");
 
-        float headingError = shortestAngleErrorDeg(sys.targetHeadingDeg, sys.sensors.headingDeg);
-        float steerCmd = _headingPid.update(headingError, dtSec);
-
-        out.steerPct = clampf(steerCmd, Limits::STEER_MIN_PCT, Limits::STEER_MAX_PCT);
         out.thrustPct = clampf(
             AutoConfig::START_THRUST_PCT,
             Limits::THRUST_MIN_PCT,
-            Limits::THRUST_MAX_PCT
-        );
+            Limits::THRUST_MAX_PCT);
 
+        if (!sys.sensors.headingValid)
+        {
+            out.steerPct = 0.0f;
+            return out;
+        }
+
+        const float currentHeadingDeg = sys.sensors.headingDeg;
+        float headingError = shortestAngleErrorDeg(sys.targetHeadingDeg, currentHeadingDeg);
+        float steerCmd = _headingPid.update(headingError, dtSec);
+
+        out.steerPct = clampf(steerCmd, Limits::STEER_MIN_PCT, Limits::STEER_MAX_PCT);
         return out;
     }
 
     // Normal AUTO när båten har fart nog
-    float headingError = shortestAngleErrorDeg(sys.targetHeadingDeg, sys.sensors.headingDeg);
+    if (!sys.sensors.headingValid || !sys.sensors.speedValid)
+    {
+        strcpy(((SystemState &)sys).sensors.autoState, "WAIT");
+        out.steerPct = 0.0f;
+        out.thrustPct = 0.0f;
+        return out;
+    }
+
+    const float currentHeadingDeg = sys.sensors.headingDeg;
+    float headingError = shortestAngleErrorDeg(sys.targetHeadingDeg, currentHeadingDeg);
     float steerCmd = _headingPid.update(headingError, dtSec);
 
-    float speedError = sys.targetSpeedPct - sys.sensors.speedPct;
+    const float targetSpeedMps = speedPctToMps(sys.targetSpeedPct);
+    float speedError = targetSpeedMps - currentSpeedMps;
     float thrustCmd = _speedPid.update(speedError, dtSec);
 
-    out.steerPct  = clampf(steerCmd, Limits::STEER_MIN_PCT, Limits::STEER_MAX_PCT);
+    out.steerPct = clampf(steerCmd, Limits::STEER_MIN_PCT, Limits::STEER_MAX_PCT);
     out.thrustPct = clampf(thrustCmd, Limits::THRUST_MIN_PCT, Limits::THRUST_MAX_PCT);
-
-    float headingAbs = fabsf(headingError);
-    if (headingAbs > 45.0f) out.thrustPct *= 0.6f;
-    if (headingAbs > 90.0f) out.thrustPct *= 0.35f;
 
     return out;
 }
 
-ActuatorCommand MainController::computeAnchor(float dtSec, const SystemState& sys)
+ActuatorCommand MainController::computeAnchor(float dtSec, const SystemState &sys)
 {
     (void)dtSec;
 
     ActuatorCommand out;
-    float headingError = shortestAngleErrorDeg(sys.targetHeadingDeg, sys.sensors.headingDeg);
+    const float currentHeadingDeg = sys.sensors.headingDeg;
+    float headingError = shortestAngleErrorDeg(sys.targetHeadingDeg, currentHeadingDeg);
     out.steerPct = clampf(headingError, Limits::STEER_MIN_PCT, Limits::STEER_MAX_PCT);
     out.thrustPct = 0.0f;
-    //strcpy(((SystemState&)sys).sensors.autoState, "ANCHOR");
+    // strcpy(((SystemState&)sys).sensors.autoState, "ANCHOR");
     return out;
 }
 
 // ------------------------------------------------------------
 
-void applyCommand(const RemoteCommand& cmd, SystemState& sys, MainController& controller, ControlSource src)
+void applyCommand(const RemoteCommand &cmd, SystemState &sys, MainController &controller, ControlSource src)
 {
-    if (!cmd.valid) return;
+    if (!cmd.valid)
+        return;
 
     sys.lastCommandTimeMs = millis();
 
@@ -205,9 +227,12 @@ void applyCommand(const RemoteCommand& cmd, SystemState& sys, MainController& co
 
     const SystemMode oldMode = sys.mode;
 
-    if (cmd.requestManual) sys.mode = SystemMode::MANUAL;
-    if (cmd.requestAuto)   sys.mode = SystemMode::AUTO;
-    if (cmd.requestAnchor) sys.mode = SystemMode::ANCHOR;
+    if (cmd.requestManual)
+        sys.mode = SystemMode::MANUAL;
+    if (cmd.requestAuto)
+        sys.mode = SystemMode::AUTO;
+    if (cmd.requestAnchor)
+        sys.mode = SystemMode::ANCHOR;
 
     if (sys.mode != oldMode)
     {

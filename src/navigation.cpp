@@ -61,7 +61,7 @@ void Navigation::update(SensorData &sensors)
     // ----------------------------
     // Speed → percentage (legacy)
     // ----------------------------
-    const float maxSpeedMps = 2.5f;
+    const float maxSpeedMps = AutoConfig::MAX_SPEED_MPS;
     const float minSpeedThreshold = 0.3f; // ignore jitter
 
     float speed = sensors.speedMps;
