@@ -31,12 +31,50 @@ static float smoothAngleDeg(float currentDeg, float targetDeg, float alpha)
     return wrap360(currentDeg + err * alpha);
 }
 
+static float correctHeading(float raw)
+{
+    struct Point
+    {
+        float raw;
+        float corr;
+    };
+
+    static const Point table[] =
+    {
+        {   0,   0 },
+        {  37,  45 },
+        {  83,  90 },
+        { 128, 135 },
+        { 163, 180 },
+        { 205, 225 },
+        { 275, 270 },
+        { 325, 315 }
+        
+    };
+
+    for (int i = 0; i < 8; i++)
+    {
+        const float r0 = table[i].raw;
+        const float r1 = table[i + 1].raw;
+
+        if (raw >= r0 && raw <= r1)
+        {
+            const float t = (raw - r0) / (r1 - r0);
+            const float c0 = table[i].corr;
+            const float c1 = table[i + 1].corr;
+
+            return wrap360(c0 + t * (c1 - c0));
+        }
+    }
+
+    return raw;
+}
+
 static bool enableImuReports()
 {
-    // Rotation vector = fusionerad orientering
-    if (!bno08x.enableReport(SH2_ROTATION_VECTOR))
+    if (!bno08x.enableReport(SH2_GEOMAGNETIC_ROTATION_VECTOR))
     {
-        Serial.println("[IMU] Could not enable rotation vector");
+        Serial.println("[IMU] Could not enable geomagnetic rotation vector");
         return false;
     }
 
@@ -59,7 +97,7 @@ static bool updateImuHeading()
 
     while (bno08x.getSensorEvent(&sensorValue))
     {
-        if (sensorValue.sensorId == SH2_ROTATION_VECTOR)
+        if (sensorValue.sensorId == SH2_GEOMAGNETIC_ROTATION_VECTOR)
         {
             gotRotationVector = true;
 
@@ -68,7 +106,6 @@ static bool updateImuHeading()
             const float qk = sensorValue.un.rotationVector.k;
             const float qr = sensorValue.un.rotationVector.real;
 
-            // Quaternion -> yaw
             float yawRad = atan2f(
                 2.0f * (qr * qk + qi * qj),
                 1.0f - 2.0f * (qj * qj + qk * qk)
@@ -77,6 +114,8 @@ static bool updateImuHeading()
             float headingDeg = yawRad * 180.0f / PI;
             headingDeg += CompassConfig::HEADING_OFFSET_DEG;
             headingDeg = wrap360(headingDeg);
+
+            headingDeg = correctHeading(headingDeg);
 
             gImuHeadingDeg = headingDeg;
             gImuValid = true;
