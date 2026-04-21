@@ -1,6 +1,10 @@
 #pragma once
 #include <Arduino.h>
 
+#ifndef USE_LOCAL_BUTTONS
+#define USE_LOCAL_BUTTONS 1
+#endif
+
 // ============================================================
 // MANUAL CONTROL
 // ============================================================
@@ -80,8 +84,8 @@ namespace CompassConfig
     static constexpr int SCL_PIN = 22;
     static constexpr uint32_t FREQ_HZ = 100000;
 
-    // Justeras senare efter verklig montering/orientering
-    static constexpr float HEADING_OFFSET_DEG = -84.0f;
+    // Justeras senare efter verklig montering/orientering 
+    static constexpr float HEADING_OFFSET_DEG = 130.0f;
 }
 
 // ============================================================

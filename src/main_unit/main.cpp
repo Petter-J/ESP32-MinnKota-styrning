@@ -31,6 +31,7 @@ static Navigation gNavigation;
 // ============================================================
 static uint32_t readLocalButtons()
 {
+#if USE_LOCAL_BUTTONS
     uint32_t mask = 0;
 
     if (digitalRead(ButtonPins::STOP) == LOW)
@@ -58,6 +59,9 @@ static uint32_t readLocalButtons()
         mask |= buttonBit(ButtonId::STEER_RIGHT);
 
     return mask;
+#else
+    return 0;
+#endif
 }
 
 // ============================================================
