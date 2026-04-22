@@ -38,32 +38,36 @@ namespace AnchorControlConfig
 // ============================================================
 // BUTTONS
 // ============================================================
+
 namespace ButtonPins
 {
-    static constexpr int STOP = 26;
-    static constexpr int MODE_MANUAL = 25;
-    static constexpr int MODE_AUTO = 34;
-    static constexpr int MODE_ANCHOR = 39;
+    // ESP32-S3 valid GPIOs (internal pull-ups, active LOW to GND)
+    static constexpr int STOP         = 10;
+    static constexpr int MODE_MANUAL  = 14;
+    static constexpr int MODE_AUTO    = 15;
+    static constexpr int MODE_ANCHOR  = 16;
 
-    static constexpr int THRUST_UP = 36;
-    static constexpr int THRUST_DOWN = 35;
+    static constexpr int THRUST_UP    = 17;
+    static constexpr int THRUST_DOWN  = 18;
 
-    static constexpr int STEER_LEFT = 18;
-    static constexpr int STEER_RIGHT = 23;
+    static constexpr int STEER_LEFT   = 21;
+    static constexpr int STEER_RIGHT  = 7;
 }
+
 
 // ============================================================
 // PIN CONFIG
 // ============================================================
 namespace PinConfig
 {
-    static constexpr int THRUST_PWM = 33; // DFR1036 PWM input
-    static constexpr int THRUST_EN = 27;  // Enable to motor board (active LOW)
+    static constexpr int THRUST_PWM = 5;   // grouped right side
+    static constexpr int THRUST_EN  = 6;
 
-    static constexpr int STEER_DIR = 14; // Cytron MD13S DIR
-    static constexpr int STEER_PWM = 32; // Cytron MD13S PWM
+    static constexpr int STEER_DIR  = 4;
+    static constexpr int STEER_PWM  = 2;
 
-    static constexpr int STATUS_LED = 13;
+    // Built-in green LED (STAT) on IO0
+    static constexpr int STATUS_LED = 0;
 }
 
 // ============================================================
@@ -72,19 +76,18 @@ namespace PinConfig
 namespace GpsConfig
 {
     // UART för GPS
-    static constexpr int RX_PIN = 16; // ESP32 RX tar emot från GPS TX
-    static constexpr int TX_PIN = 17; // ESP32 TX skickar till GPS RX
+    static constexpr int RX_PIN = 42;
+    static constexpr int TX_PIN = 13;
     static constexpr uint32_t BAUD = 115200;
 }
 
 namespace CompassConfig
 {
     // I2C för BNO085
-    static constexpr int SDA_PIN = 21;
-    static constexpr int SCL_PIN = 22;
+    static constexpr int SDA_PIN = 8;
+    static constexpr int SCL_PIN = 9;
     static constexpr uint32_t FREQ_HZ = 100000;
 
-    // Justeras senare efter verklig montering/orientering
     static constexpr float HEADING_OFFSET_DEG = 130.0f;
 }
 

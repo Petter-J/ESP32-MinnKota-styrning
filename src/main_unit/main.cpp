@@ -30,7 +30,7 @@ static Navigation gNavigation;
 // ============================================================
 static uint32_t readLocalButtons()
 {
-#if USE_LOCAL_BUTTONS
+
     uint32_t mask = 0;
 
     if (digitalRead(ButtonPins::STOP) == LOW)
@@ -58,9 +58,7 @@ static uint32_t readLocalButtons()
         mask |= buttonBit(ButtonId::STEER_RIGHT);
 
     return mask;
-#else
-    return 0;
-#endif
+
 }
 
 // ============================================================
@@ -95,23 +93,28 @@ static void printTelemetry(const SystemState &sys)
 void setup()
 {
     Serial.begin(115200);
-    delay(300);
+delay(1500);
 
+for (int i = 0; i < 5; i++)
+{
+    Serial.print("MAIN MAC: ");
     Serial.println(WiFi.macAddress());
+    delay(500);
+}
 
     pinMode(PinConfig::STATUS_LED, OUTPUT);
     digitalWrite(PinConfig::STATUS_LED, LOW);
 
-    pinMode(ButtonPins::STOP, INPUT);
-    pinMode(ButtonPins::MODE_MANUAL, INPUT);
-    pinMode(ButtonPins::MODE_AUTO, INPUT);
-    pinMode(ButtonPins::MODE_ANCHOR, INPUT);
+    pinMode(ButtonPins::STOP, INPUT_PULLUP);
+    pinMode(ButtonPins::MODE_MANUAL, INPUT_PULLUP);
+    pinMode(ButtonPins::MODE_AUTO, INPUT_PULLUP);
+    pinMode(ButtonPins::MODE_ANCHOR, INPUT_PULLUP);
 
-    pinMode(ButtonPins::THRUST_UP, INPUT);
-    pinMode(ButtonPins::THRUST_DOWN, INPUT);
+    pinMode(ButtonPins::THRUST_UP, INPUT_PULLUP);
+    pinMode(ButtonPins::THRUST_DOWN, INPUT_PULLUP);
 
-    pinMode(ButtonPins::STEER_LEFT, INPUT);
-    pinMode(ButtonPins::STEER_RIGHT, INPUT);
+    pinMode(ButtonPins::STEER_LEFT, INPUT_PULLUP);
+    pinMode(ButtonPins::STEER_RIGHT, INPUT_PULLUP);
 
     DBG_PRINTLN("");
     DBG_PRINTLN("=======================================");

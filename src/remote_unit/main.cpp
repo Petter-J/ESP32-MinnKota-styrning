@@ -31,22 +31,22 @@ constexpr uint32_t buttonBit(ButtonId id)
 // ============================================================
 namespace ButtonPins
 {
-    static constexpr int STOP         = 26;
-    static constexpr int MODE_MANUAL  = 25;
-    static constexpr int MODE_AUTO    = 18;
-    static constexpr int MODE_ANCHOR  = 23;
+    static constexpr int STOP         = 10;
+    static constexpr int MODE_MANUAL  = 14;
+    static constexpr int MODE_AUTO    = 15;
+    static constexpr int MODE_ANCHOR  = 16;
 
-    static constexpr int THRUST_UP    = 14;
-    static constexpr int THRUST_DOWN  = 32;
+    static constexpr int THRUST_UP    = 4;
+    static constexpr int THRUST_DOWN  = 5;
 
-    static constexpr int STEER_LEFT   = 33;
-    static constexpr int STEER_RIGHT  = 27;
+    static constexpr int STEER_LEFT   = 6;
+    static constexpr int STEER_RIGHT  = 7;
 }
 
 // ============================================================
 // RECEIVER MAC (ändra vid behov)
 // ============================================================
-static uint8_t RECEIVER_MAC[6] = { 0xA0, 0xB7, 0x65, 0x07, 0xCF, 0x24 };
+static uint8_t RECEIVER_MAC[6] = {0x9C, 0x13, 0x9E, 0xF0, 0x74, 0x2C};
 
 // ============================================================
 // STATUS
@@ -110,7 +110,7 @@ void onRecv(const uint8_t*, const uint8_t* data, int len)
 void setup()
 {
     Serial.begin(115200);
-    delay(300);
+    delay(1500);
 
     //  Visa MAC-adress (viktigt för pairing)
     WiFi.mode(WIFI_STA);
