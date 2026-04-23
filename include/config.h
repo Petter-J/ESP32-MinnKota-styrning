@@ -1,9 +1,7 @@
 #pragma once
 #include <Arduino.h>
 
-#ifndef USE_LOCAL_BUTTONS
-#define USE_LOCAL_BUTTONS 1
-#endif
+
 
 // ============================================================
 // MANUAL CONTROL
