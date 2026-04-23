@@ -42,16 +42,16 @@ namespace AnchorControlConfig
 namespace ButtonPins
 {
     // ESP32-S3 valid GPIOs (internal pull-ups, active LOW to GND)
-    static constexpr int STOP         = 10;
-    static constexpr int MODE_MANUAL  = 14;
-    static constexpr int MODE_AUTO    = 15;
-    static constexpr int MODE_ANCHOR  = 16;
+    static constexpr int STOP         = 14;
+    static constexpr int MODE_MANUAL  = 8;
+    static constexpr int MODE_AUTO    = 12;
+    static constexpr int MODE_ANCHOR  = 11;
 
-    static constexpr int THRUST_UP    = 17;
-    static constexpr int THRUST_DOWN  = 18;
+    static constexpr int THRUST_UP    = 10;
+    static constexpr int THRUST_DOWN  = 9;
 
-    static constexpr int STEER_LEFT   = 21;
-    static constexpr int STEER_RIGHT  = 7;
+    static constexpr int STEER_LEFT   = 6;
+    static constexpr int STEER_RIGHT  = 5;
 }
 
 
@@ -60,14 +60,13 @@ namespace ButtonPins
 // ============================================================
 namespace PinConfig
 {
-    static constexpr int THRUST_PWM = 5;   // grouped right side
-    static constexpr int THRUST_EN  = 6;
+    static constexpr int THRUST_PWM = 15;   
+    static constexpr int THRUST_EN  = 16;
 
-    static constexpr int STEER_DIR  = 4;
-    static constexpr int STEER_PWM  = 2;
+    static constexpr int STEER_DIR  = 17;
+    static constexpr int STEER_PWM  = 18;
 
-    // Built-in green LED (STAT) on IO0
-    static constexpr int STATUS_LED = 0;
+    static constexpr int STATUS_LED = 13;
 }
 
 // ============================================================
@@ -76,16 +75,16 @@ namespace PinConfig
 namespace GpsConfig
 {
     // UART för GPS
-    static constexpr int RX_PIN = 42;
-    static constexpr int TX_PIN = 13;
+    static constexpr int RX_PIN = 39;
+    static constexpr int TX_PIN = 38;
     static constexpr uint32_t BAUD = 115200;
 }
 
 namespace CompassConfig
 {
     // I2C för BNO085
-    static constexpr int SDA_PIN = 8;
-    static constexpr int SCL_PIN = 9;
+    static constexpr int SDA_PIN = 3;
+    static constexpr int SCL_PIN = 4;
     static constexpr uint32_t FREQ_HZ = 100000;
 
     static constexpr float HEADING_OFFSET_DEG = 130.0f;
