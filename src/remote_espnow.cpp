@@ -113,22 +113,35 @@ void RemoteEspNow::setRemote2Mask(uint32_t buttonMask, uint32_t rxTimeMs)
     _remote2LastRxTimeMs = rxTimeMs;
 }
 
-bool RemoteEspNow::sendStatus(const StatusPacket& status)
+bool RemoteEspNow::sendStatusRemote1(const StatusPacket &status)
 {
     if (!_initialized)
         return false;
 
-    const esp_err_t result1 = esp_now_send(
+    const esp_err_t result = esp_now_send(
         s_remote1PeerMac,
-        reinterpret_cast<const uint8_t*>(&status),
-        sizeof(StatusPacket)
-    );
+        reinterpret_cast<const uint8_t *>(&status),
+        sizeof(StatusPacket));
 
-    const esp_err_t result2 = esp_now_send(
+    return result == ESP_OK;
+}
+
+bool RemoteEspNow::sendStatusRemote2(const StatusPacket &status)
+{
+    if (!_initialized)
+        return false;
+
+    const esp_err_t result = esp_now_send(
         s_remote2PeerMac,
-        reinterpret_cast<const uint8_t*>(&status),
-        sizeof(StatusPacket)
-    );
+        reinterpret_cast<const uint8_t *>(&status),
+        sizeof(StatusPacket));
 
-    return (result1 == ESP_OK) || (result2 == ESP_OK);
+    return result == ESP_OK;
+}
+
+bool RemoteEspNow::sendStatus(const StatusPacket &status)
+{
+    const bool ok1 = sendStatusRemote1(status);
+    const bool ok2 = sendStatusRemote2(status);
+    return ok1 || ok2;
 }

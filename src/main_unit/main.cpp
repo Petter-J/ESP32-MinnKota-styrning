@@ -243,7 +243,25 @@ void loop()
 
     pkt.counter = (uint8_t)gStatusCounter++;
 
-    gRemote.sendStatus(pkt);
+    // Skicka status med olika takt per remote (lätt att ändra senare)
+    static uint32_t lastStatusR1Ms = 0;
+    static uint32_t lastStatusR2Ms = 0;
+
+    if (now - lastStatusR1Ms >= 50) // Remote1: 10 Hz
+    {
+        lastStatusR1Ms = now;
+
+        StatusPacket pkt1 = pkt; // framtid: anpassa pkt1 för remote1
+        gRemote.sendStatusRemote1(pkt1);
+    }
+
+    if (now - lastStatusR2Ms >= 50) // Remote2: 20 Hz
+    {
+        lastStatusR2Ms = now;
+
+        StatusPacket pkt2 = pkt; // framtid: anpassa pkt2 för remote2
+        gRemote.sendStatusRemote2(pkt2);
+    }
 
     // 10. Sensor update
     if (useSimulator && now - lastSimMs >= TimingConfig::SIM_INTERVAL_MS)

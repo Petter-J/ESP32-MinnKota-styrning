@@ -7,12 +7,17 @@ class RemoteEspNow
 public:
     void begin();
 
-    bool sendStatus(const StatusPacket& status);
+    // Nytt: skicka separat
+    bool sendStatusRemote1(const StatusPacket &status);
+    bool sendStatusRemote2(const StatusPacket &status);
+
+    // Behåll för bakåtkompabilitet: skickar till båda (via metoderna ovan)
+    bool sendStatus(const StatusPacket &status);
 
     uint32_t getCombinedMask(uint32_t nowMs) const;
 
 private:
-    friend void onEspNowRecv(const uint8_t* mac, const uint8_t* data, int len);
+    friend void onEspNowRecv(const uint8_t *mac, const uint8_t *data, int len);
 
     void setRemote1Mask(uint32_t buttonMask, uint32_t rxTimeMs);
     void setRemote2Mask(uint32_t buttonMask, uint32_t rxTimeMs);
