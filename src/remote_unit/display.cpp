@@ -60,7 +60,7 @@ void display_set_brightness(uint8_t value)
 
 void display_begin()
 {
-    Wire.begin();
+    Wire.begin(8, 9);   // SDA, SCL för SparkFun Thing Plus ESP32-S3
     Wire.setTimeOut(50);
 
     gDisplayAvailable = display.begin(0x3C, true);

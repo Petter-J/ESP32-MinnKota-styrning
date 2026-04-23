@@ -52,6 +52,11 @@ struct SensorData
     float headingDeg = 0.0f;
     float speedPct   = 0.0f;
 
+    //  NY (riktig fart)
+    float speedMps   = 0.0f;
+
+
+
     float posX = 0.0f;
     float posY = 0.0f;
 

@@ -1,278 +1,101 @@
+// Clean navigation version
 #include "navigation.h"
 #include <cstring>
 #include <Arduino.h>
-#include <HardwareSerial.h>
-#include <TinyGPSPlus.h>
-#include <Wire.h>
-#include <Adafruit_BNO08x.h>
 #include "config.h"
 
-static HardwareSerial GPSSerial(1);
-static TinyGPSPlus gps;
-
-// ------------------------------------------------------------
-// BNO085
-// ------------------------------------------------------------
-static Adafruit_BNO08x bno08x(-1);   // ingen reset-pin använd
-static sh2_SensorValue_t sensorValue;
-
-static float gImuHeadingDeg = 0.0f;
-static bool gImuValid = false;
-
-static uint8_t imuFailCount = 0;
-static constexpr uint8_t IMU_FAIL_LIMIT = 10;
-
-// ------------------------------------------------------------
-// Helpers
-// ------------------------------------------------------------
-static float smoothAngleDeg(float currentDeg, float targetDeg, float alpha)
-{
-    const float err = shortestAngleErrorDeg(targetDeg, currentDeg);
-    return wrap360(currentDeg + err * alpha);
-}
-
-static float correctHeading(float raw)
-{
-    struct Point
-    {
-        float raw;
-        float corr;
-    };
-
-    static const Point table[] =
-    {
-        {   0,   0 },
-        {  37,  45 },
-        {  83,  90 },
-        { 128, 135 },
-        { 163, 180 },
-        { 205, 225 },
-        { 275, 270 },
-        { 325, 315 }
-        
-    };
-
-    for (int i = 0; i < 8; i++)
-    {
-        const float r0 = table[i].raw;
-        const float r1 = table[i + 1].raw;
-
-        if (raw >= r0 && raw <= r1)
-        {
-            const float t = (raw - r0) / (r1 - r0);
-            const float c0 = table[i].corr;
-            const float c1 = table[i + 1].corr;
-
-            return wrap360(c0 + t * (c1 - c0));
-        }
-    }
-
-    return raw;
-}
-
-static bool enableImuReports()
-{
-    if (!bno08x.enableReport(SH2_GEOMAGNETIC_ROTATION_VECTOR))
-    {
-        Serial.println("[IMU] Could not enable geomagnetic rotation vector");
-        return false;
-    }
-
-    return true;
-}
-
-static bool updateImuHeading()
-{
-    if (bno08x.wasReset())
-    {
-        Serial.println("[IMU] Sensor reset detected, re-enabling reports");
-        if (!enableImuReports())
-        {
-            gImuValid = false;
-            return false;
-        }
-    }
-
-    bool gotRotationVector = false;
-
-    while (bno08x.getSensorEvent(&sensorValue))
-    {
-        if (sensorValue.sensorId == SH2_GEOMAGNETIC_ROTATION_VECTOR)
-        {
-            gotRotationVector = true;
-
-            const float qi = sensorValue.un.rotationVector.i;
-            const float qj = sensorValue.un.rotationVector.j;
-            const float qk = sensorValue.un.rotationVector.k;
-            const float qr = sensorValue.un.rotationVector.real;
-
-            float yawRad = atan2f(
-                2.0f * (qr * qk + qi * qj),
-                1.0f - 2.0f * (qj * qj + qk * qk)
-            );
-
-            float headingDeg = yawRad * 180.0f / PI;
-            headingDeg += CompassConfig::HEADING_OFFSET_DEG;
-            headingDeg = wrap360(headingDeg);
-
-            headingDeg = correctHeading(headingDeg);
-
-            gImuHeadingDeg = headingDeg;
-            gImuValid = true;
-        }
-    }
-
-    if (!gotRotationVector)
-    {
-        imuFailCount++;
-        if (imuFailCount >= IMU_FAIL_LIMIT)
-        {
-            gImuValid = false;
-        }
-        return false;
-    }
-
-    imuFailCount = 0;
-
-    static uint32_t lastImuPrintMs = 0;
-    const uint32_t now = millis();
-
-    if (now - lastImuPrintMs >= 1000)
-    {
-        lastImuPrintMs = now;
-        Serial.printf("[IMU] hdg=%.1f acc=%u\n", gImuHeadingDeg, sensorValue.status);
-    }
-
-    return true;
-}
-
-// ------------------------------------------------------------
-// Navigation
-// ------------------------------------------------------------
 bool Navigation::begin()
 {
-    GPSSerial.begin(
-        GpsConfig::BAUD,
-        SERIAL_8N1,
-        GpsConfig::RX_PIN,
-        GpsConfig::TX_PIN
-    );
+    const bool gpsOk = _gps.begin();
+    const bool imuOk = _imu.begin();
 
-    Wire.begin(CompassConfig::SDA_PIN, CompassConfig::SCL_PIN);
-    Wire.setClock(CompassConfig::FREQ_HZ);
+    Serial.printf("[NAV] begin gps=%d imu=%d\n", gpsOk ? 1 : 0, imuOk ? 1 : 0);
 
-    Serial.println("[NAV] GPS UART started");
-
-    gImuHeadingDeg = 0.0f;
-    gImuValid = false;
-    imuFailCount = 0;
-
-    if (!bno08x.begin_I2C())
-    {
-        Serial.println("[NAV] BNO085 not found on I2C");
-    }
-    else
-    {
-        Serial.println("[NAV] BNO085 found");
-
-        if (enableImuReports())
-        {
-            Serial.println("[NAV] IMU reports enabled");
-        }
-        else
-        {
-            Serial.println("[NAV] Failed to enable IMU reports");
-        }
-    }
-
-    return true;
+    return gpsOk || imuOk;
 }
 
-void Navigation::update(SensorData& sensors)
+void Navigation::update(SensorData &sensors)
 {
-    // --------------------------------------------------------
-    // 1. Read GPS stream
-    // --------------------------------------------------------
-    while (GPSSerial.available())
-    {
-        gps.encode((char)GPSSerial.read());
-    }
+    GpsFix gpsFix{};
+    ImuHeading imuHeading{};
 
-    // --------------------------------------------------------
-    // 2. Update IMU
-    // --------------------------------------------------------
-    updateImuHeading();
+    _gps.update(gpsFix);
+    _imu.update(imuHeading);
 
-    // --------------------------------------------------------
-    // 3. Fill GPS-related sensor fields
-    // --------------------------------------------------------
     strcpy(sensors.headingSource, "NONE");
 
-    sensors.gpsValid = gps.location.isValid();
-    sensors.speedValid = gps.speed.isValid();
+    // ----------------------------
+    // GPS
+    // ----------------------------
+    sensors.gpsValid = gpsFix.locationValid;
+    sensors.speedValid = gpsFix.speedValid;
 
-    if (gps.location.isValid())
+    if (gpsFix.locationValid)
     {
-        sensors.latitudeDeg = gps.location.lat();
-        sensors.longitudeDeg = gps.location.lng();
+        sensors.latitudeDeg = gpsFix.latDeg;
+        sensors.longitudeDeg = gpsFix.lonDeg;
     }
 
-    if (gps.satellites.isValid())
-    {
-        sensors.satellites = gps.satellites.value();
-    }
-    else
-    {
-        sensors.satellites = 0;
-    }
+    sensors.satellites = gpsFix.satellites;
 
-    if (gps.speed.isValid())
+    if (gpsFix.speedValid)
     {
-        sensors.gpsSpeedMps = gps.speed.mps();
+        sensors.gpsSpeedMps = gpsFix.speedMps;
+        sensors.speedMps = gpsFix.speedMps;
     }
     else
     {
         sensors.gpsSpeedMps = 0.0f;
+        sensors.speedMps = 0.0f;
     }
 
-    if (gps.course.isValid())
+    if (gpsFix.courseValid)
     {
-        sensors.courseOverGroundDeg = gps.course.deg();
+        sensors.courseOverGroundDeg = gpsFix.courseDeg;
     }
     else
     {
         sensors.courseOverGroundDeg = 0.0f;
     }
 
-    // --------------------------------------------------------
-    // 4. Map GPS speed -> speedPct
-    // --------------------------------------------------------
-    const float maxSpeedMps = 2.5f;
-    float pct = (sensors.gpsSpeedMps / maxSpeedMps) * 100.0f;
+    // ----------------------------
+    // Speed → percentage (legacy)
+    // ----------------------------
+    const float maxSpeedMps = AutoConfig::MAX_SPEED_MPS;
+    const float minSpeedThreshold = 0.3f; // ignore jitter
 
-    if (pct < 0.0f) pct = 0.0f;
-    if (pct > 100.0f) pct = 100.0f;
+    float speed = sensors.speedMps;
+
+    if (speed < minSpeedThreshold)
+    {
+        speed = 0.0f;
+    }
+
+    float pct = (speed / maxSpeedMps) * 100.0f;
+
+    if (pct < 0.0f)
+        pct = 0.0f;
+    if (pct > 100.0f)
+        pct = 100.0f;
 
     sensors.speedPct = pct;
 
-    // --------------------------------------------------------
-    // 5. Select heading source
-    //    - GPS course when moving fast enough
-    //    - otherwise IMU
-    // --------------------------------------------------------
-    const float minHeadingSpeedMps = 0.8f;
+    // ----------------------------
+    // Heading selection
+    // ----------------------------
+    const float minHeadingSpeedMps = AutoConfig::MIN_GPS_COURSE_SPEED_MPS;
 
-    if (gps.course.isValid() &&
-        gps.speed.isValid() &&
-        gps.speed.mps() >= minHeadingSpeedMps)
+    if (gpsFix.courseValid &&
+        gpsFix.speedValid &&
+        gpsFix.speedMps >= minHeadingSpeedMps)
     {
         sensors.headingDeg = sensors.courseOverGroundDeg;
         sensors.headingValid = true;
         strcpy(sensors.headingSource, "GPS");
     }
-    else if (gImuValid)
+    else if (imuHeading.valid)
     {
-        sensors.headingDeg = gImuHeadingDeg;
+        sensors.headingDeg = imuHeading.headingDeg;
         sensors.headingValid = true;
         strcpy(sensors.headingSource, "IMU");
     }

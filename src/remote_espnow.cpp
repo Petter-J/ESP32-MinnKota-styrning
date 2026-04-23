@@ -12,7 +12,7 @@ static RemoteEspNow* s_instance = nullptr;
 // ------------------------------------------------------------
 // MAC addresses of remotes
 // ------------------------------------------------------------
-static uint8_t s_remote1PeerMac[6] = { 0xA0, 0xB7, 0x65, 0x06, 0xC1, 0x14 }; // gamla remote
+static uint8_t s_remote1PeerMac[6] = { 0xF0, 0xF5, 0xBD, 0x73, 0x87, 0x28 }; // gamla remote
 static uint8_t s_remote2PeerMac[6] = { 0x20, 0x6E, 0xF1, 0x9B, 0xB3, 0x08 }; // remote2 S3
 
 // ------------------------------------------------------------

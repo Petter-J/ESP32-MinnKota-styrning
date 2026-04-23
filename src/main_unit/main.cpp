@@ -10,13 +10,12 @@
 #include "input_logic.h"
 #include "navigation.h"
 
-
 // ============================================================
 // Globals
 // ============================================================
 static bool gDisplayLinkAlive = false;
 static uint32_t gStatusCounter = 0;
-static bool useSimulator = false;  // sätt false när GPS/kompass är inkopplat
+static bool useSimulator = false; // sätt false när GPS/kompass är inkopplat
 static SystemState gSys;
 static MotorManager gMotors;
 static MainController gController;
@@ -31,6 +30,7 @@ static Navigation gNavigation;
 // ============================================================
 static uint32_t readLocalButtons()
 {
+
     uint32_t mask = 0;
 
     if (digitalRead(ButtonPins::STOP) == LOW)
@@ -58,33 +58,34 @@ static uint32_t readLocalButtons()
         mask |= buttonBit(ButtonId::STEER_RIGHT);
 
     return mask;
+
 }
 
 // ============================================================
 // Helpers
 // ============================================================
-static void printTelemetry(const SystemState& sys)
+static void printTelemetry(const SystemState &sys)
 {
     DBG_PRINTF(
-    "[TEL] mode=%s auto=%s hdg=%.1f hdgSrc=%s hdgValid=%d gpsValid=%d spdValid=%d sats=%u lat=%.6f lon=%.6f  gpsSpd=%.2f cog=%.1f spdPct=%.1f tgtH=%.1f tgtS=%.1f actT=%.1f actS=%.1f\n",
-    modeToString(sys.mode),
-    sys.sensors.autoState,
-    sys.sensors.headingDeg,
-    sys.sensors.headingSource,
-    sys.sensors.headingValid ? 1 : 0,
-    sys.sensors.gpsValid ? 1 : 0,
-    sys.sensors.speedValid ? 1 : 0,
-    sys.sensors.satellites,
-    sys.sensors.latitudeDeg,
-    sys.sensors.longitudeDeg,
-    sys.sensors.gpsSpeedMps,
-    sys.sensors.courseOverGroundDeg,
-    sys.sensors.speedPct,
-    sys.targetHeadingDeg,
-    sys.targetSpeedPct,
-    sys.actuators.thrustPct,
-    sys.actuators.steerPct
-);
+        "[TEL] mode=%s auto=%s hdg=%.1f hdgSrc=%s hdgValid=%d gpsValid=%d spdValid=%d sats=%u lat=%.6f lon=%.6f  gpsSpd=%.2f speedMps=%.2f cog=%.1f spdPct=%.1f tgtH=%.1f tgtS=%.1f actT=%.1f actS=%.1f\n",
+        modeToString(sys.mode),
+        sys.sensors.autoState,
+        sys.sensors.headingDeg,
+        sys.sensors.headingSource,
+        sys.sensors.headingValid ? 1 : 0,
+        sys.sensors.gpsValid ? 1 : 0,
+        sys.sensors.speedValid ? 1 : 0,
+        sys.sensors.satellites,
+        sys.sensors.latitudeDeg,
+        sys.sensors.longitudeDeg,
+        sys.sensors.gpsSpeedMps,
+        sys.sensors.speedMps, // 🔹 här
+        sys.sensors.courseOverGroundDeg,
+        sys.sensors.speedPct,
+        sys.targetHeadingDeg,
+        sys.targetSpeedPct,
+        sys.actuators.thrustPct,
+        sys.actuators.steerPct);
 }
 // ============================================================
 // Setup
@@ -92,23 +93,28 @@ static void printTelemetry(const SystemState& sys)
 void setup()
 {
     Serial.begin(115200);
-    delay(300);
+delay(1500);
 
+for (int i = 0; i < 5; i++)
+{
+    Serial.print("MAIN MAC: ");
     Serial.println(WiFi.macAddress());
+    delay(500);
+}
 
     pinMode(PinConfig::STATUS_LED, OUTPUT);
     digitalWrite(PinConfig::STATUS_LED, LOW);
 
-    pinMode(ButtonPins::STOP, INPUT);
-    pinMode(ButtonPins::MODE_MANUAL, INPUT);
-    pinMode(ButtonPins::MODE_AUTO, INPUT);
-    pinMode(ButtonPins::MODE_ANCHOR, INPUT);
+    pinMode(ButtonPins::STOP, INPUT_PULLUP);
+    pinMode(ButtonPins::MODE_MANUAL, INPUT_PULLUP);
+    pinMode(ButtonPins::MODE_AUTO, INPUT_PULLUP);
+    pinMode(ButtonPins::MODE_ANCHOR, INPUT_PULLUP);
 
-    pinMode(ButtonPins::THRUST_UP, INPUT);
-    pinMode(ButtonPins::THRUST_DOWN, INPUT);
+    pinMode(ButtonPins::THRUST_UP, INPUT_PULLUP);
+    pinMode(ButtonPins::THRUST_DOWN, INPUT_PULLUP);
 
-    pinMode(ButtonPins::STEER_LEFT, INPUT);
-    pinMode(ButtonPins::STEER_RIGHT, INPUT);
+    pinMode(ButtonPins::STEER_LEFT, INPUT_PULLUP);
+    pinMode(ButtonPins::STEER_RIGHT, INPUT_PULLUP);
 
     DBG_PRINTLN("");
     DBG_PRINTLN("=======================================");
@@ -210,24 +216,24 @@ void loop()
     pkt.satellites = (uint8_t)gSys.sensors.satellites;
 
     // 🔥 FIX: steer baserat på knapp, inte motor
-    constexpr uint32_t LEFT_BIT  = (1UL << 6);
-constexpr uint32_t RIGHT_BIT = (1UL << 7);
+    constexpr uint32_t LEFT_BIT = (1UL << 6);
+    constexpr uint32_t RIGHT_BIT = (1UL << 7);
 
-const bool left  = (effectiveMask & LEFT_BIT) != 0;
-const bool right = (effectiveMask & RIGHT_BIT) != 0;
+    const bool left = (effectiveMask & LEFT_BIT) != 0;
+    const bool right = (effectiveMask & RIGHT_BIT) != 0;
 
-if (left && !right)
-{
-    pkt.steerState = -1;
-}
-else if (right && !left)
-{
-    pkt.steerState = 1;
-}
-else
-{
-    pkt.steerState = 0; // båda eller ingen
-}
+    if (left && !right)
+    {
+        pkt.steerState = -1;
+    }
+    else if (right && !left)
+    {
+        pkt.steerState = 1;
+    }
+    else
+    {
+        pkt.steerState = 0; // båda eller ingen
+    }
 
     pkt.flags = 0;
     if (gSys.sensors.gpsValid)
