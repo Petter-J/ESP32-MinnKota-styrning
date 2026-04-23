@@ -111,7 +111,7 @@ namespace MotorConfig
 // ============================================================
 namespace AutoConfig
 {
-    static constexpr float MIN_GPS_COURSE_SPEED_MPS = 0.8f;
+    static constexpr float MIN_GPS_COURSE_SPEED_MPS = 0.5f;
     static constexpr float START_THRUST_PCT = 20.0f;
     static constexpr float MAX_SPEED_MPS = 2.5f;
 }

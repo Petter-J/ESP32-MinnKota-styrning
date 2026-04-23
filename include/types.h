@@ -87,22 +87,25 @@ struct SystemState
 {
     SystemMode mode = SystemMode::MANUAL;
     ControlSource lastControlSource = ControlSource::NONE;
-
     RemoteCommand lastCommand;
     SensorData sensors;
     ActuatorCommand actuators;
 
     float targetHeadingDeg = 0.0f;
-    float targetSpeedPct   = 0.0f;
-
+    float targetSpeedPct = 0.0f;
     float manualThrustPct = 0.0f;
-    float manualSteerPct  = 0.0f;
+    float manualSteerPct = 0.0f;
 
     bool motorsEnabled = true;
     bool simulatorEnabled = true;
 
     uint32_t lastCommandTimeMs = 0;
     uint32_t sensorFailStartMs = 0;
+
+    // anchor
+    bool anchorActive = false;
+    double anchorLatDeg = 0.0;
+    double anchorLonDeg = 0.0;
 };
 
 // ---- Utility functions ----

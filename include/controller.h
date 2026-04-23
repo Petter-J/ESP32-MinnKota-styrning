@@ -1,6 +1,7 @@
 #pragma once
 #include <Arduino.h>
 #include "types.h"
+#include "anchor_controller.h"
 
 class PidController
 {
@@ -27,17 +28,18 @@ class MainController
 {
 public:
     void begin();
-    void onModeChanged(SystemMode newMode, SystemState& sys);
-    void update(float dtSec, SystemState& sys);
+    void onModeChanged(SystemMode newMode, SystemState &sys);
+    void update(float dtSec, SystemState &sys);
 
 private:
-    ActuatorCommand computeStop(const SystemState& sys);
-    ActuatorCommand computeManual(const SystemState& sys);
-    ActuatorCommand computeAuto(float dtSec, const SystemState& sys);
-    ActuatorCommand computeAnchor(float dtSec, const SystemState& sys);
+    ActuatorCommand computeStop(const SystemState &sys);
+    ActuatorCommand computeManual(const SystemState &sys);
+    ActuatorCommand computeAuto(float dtSec, const SystemState &sys);
+    ActuatorCommand computeAnchor(float dtSec, SystemState &sys);
 
     PidController _headingPid;
     PidController _speedPid;
+    AnchorController _anchor;
 };
 
-void applyCommand(const RemoteCommand& cmd, SystemState& sys, MainController& controller, ControlSource src);
+void applyCommand(const RemoteCommand &cmd, SystemState &sys, MainController &controller, ControlSource src);

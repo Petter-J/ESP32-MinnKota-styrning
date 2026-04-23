@@ -1,6 +1,8 @@
 #include "controller.h"
 #include "config.h"
 #include <cstring>
+#include <math.h>
+#include <string.h>
 
 static float speedPctToMps(float pct)
 {
@@ -96,22 +98,23 @@ void MainController::onModeChanged(SystemMode newMode, SystemState &sys)
         break;
 
     case SystemMode::AUTO:
-        // Ta över aktuell riktning alltid
-        sys.targetHeadingDeg = sys.sensors.headingDeg;
+        if (sys.sensors.headingValid)
+        {
+            sys.targetHeadingDeg = sys.sensors.headingDeg;
+        }
 
-        // Om vi redan rör oss → behåll fart
         if (sys.sensors.speedMps >= AutoConfig::MIN_GPS_COURSE_SPEED_MPS)
         {
             sys.targetSpeedPct = sys.sensors.speedPct;
         }
         else
         {
-            // Står still → börja på start-thrust
             sys.targetSpeedPct = AutoConfig::START_THRUST_PCT;
         }
         break;
 
     case SystemMode::ANCHOR:
+        _anchor.onEnter(sys);
         break;
     }
 }
@@ -145,7 +148,6 @@ ActuatorCommand MainController::computeStop(const SystemState &sys)
     ActuatorCommand out;
     out.thrustPct = 0.0f;
     out.steerPct = 0.0f;
-    // strcpy(((SystemState&)sys).sensors.autoState, "STOP");
     return out;
 }
 
@@ -154,7 +156,6 @@ ActuatorCommand MainController::computeManual(const SystemState &sys)
     ActuatorCommand out;
     out.thrustPct = clampf(sys.manualThrustPct, Limits::THRUST_MIN_PCT, Limits::THRUST_MAX_PCT);
     out.steerPct = clampf(sys.manualSteerPct, Limits::STEER_MIN_PCT, Limits::STEER_MAX_PCT);
-    // strcpy(((SystemState&)sys).sensors.autoState, "MAN");
     return out;
 }
 
@@ -163,10 +164,6 @@ ActuatorCommand MainController::computeAuto(float dtSec, const SystemState &sys)
     ActuatorCommand out;
     strcpy(((SystemState &)sys).sensors.autoState, "RUN");
 
-    // AUTO-startläge:
-    // Om båten går för långsamt är GPS course opålitlig.
-    // Då ger vi en fast start-thrust och använder befintlig heading som stöd
-    // tills båten fått upp fart.
     const float currentSpeedMps = sys.sensors.speedMps;
 
     if (currentSpeedMps < AutoConfig::MIN_GPS_COURSE_SPEED_MPS)
@@ -192,7 +189,6 @@ ActuatorCommand MainController::computeAuto(float dtSec, const SystemState &sys)
         return out;
     }
 
-    // Normal AUTO när båten har fart nog
     if (!sys.sensors.headingValid || !sys.sensors.speedValid)
     {
         strcpy(((SystemState &)sys).sensors.autoState, "WAIT");
@@ -215,17 +211,9 @@ ActuatorCommand MainController::computeAuto(float dtSec, const SystemState &sys)
     return out;
 }
 
-ActuatorCommand MainController::computeAnchor(float dtSec, const SystemState &sys)
+ActuatorCommand MainController::computeAnchor(float dtSec, SystemState &sys)
 {
-    (void)dtSec;
-
-    ActuatorCommand out;
-    const float currentHeadingDeg = sys.sensors.headingDeg;
-    float headingError = shortestAngleErrorDeg(sys.targetHeadingDeg, currentHeadingDeg);
-    out.steerPct = clampf(headingError, Limits::STEER_MIN_PCT, Limits::STEER_MAX_PCT);
-    out.thrustPct = 0.0f;
-    // strcpy(((SystemState&)sys).sensors.autoState, "ANCHOR");
-    return out;
+    return _anchor.update(dtSec, sys, _headingPid);
 }
 
 // ------------------------------------------------------------
@@ -277,6 +265,11 @@ void applyCommand(const RemoteCommand &cmd, SystemState &sys, MainController &co
 
     if (cmd.hasAnchorHere && cmd.anchorHere)
     {
-        // placeholder for future GPS anchor position
+        if (sys.sensors.gpsValid)
+        {
+            sys.anchorLatDeg = sys.sensors.latitudeDeg;
+            sys.anchorLonDeg = sys.sensors.longitudeDeg;
+            sys.anchorActive = true;
+        }
     }
 }
