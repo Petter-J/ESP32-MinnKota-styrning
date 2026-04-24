@@ -46,6 +46,8 @@ struct ButtonOutput
     bool thrustDownHeld = false;
     bool steerLeftHeld  = false;
     bool steerRightHeld = false;
+
+    bool anchorHeld = false;
 };
 
 class ButtonManager

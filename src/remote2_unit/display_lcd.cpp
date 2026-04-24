@@ -101,22 +101,17 @@ static void drawSteerIndicator(int8_t steerState, int16_t centerX, int16_t y)
 
 static void drawHeader(uint8_t mode, bool linkAlive)
 {
-    tft.fillRect(0, 0, 240, 36, modeColor(mode));
+    tft.fillRect(0, 0, 240, 40, modeColor(mode));
 
     tft.setTextWrap(false);
-    tft.setTextColor(ST77XX_BLACK);
-    tft.setTextSize(2);
-    tft.setCursor(10, 10);
-    tft.print(modeText(mode));
-
-    tft.setTextSize(1);
-    tft.setCursor(170, 12);
-    tft.setTextColor(linkAlive ? COLOR_GOOD : COLOR_BAD);
-    tft.print(linkAlive ? "LINK OK" : "LINK LOST");
+    drawCenteredText(modeText(mode), 120, 10, 3, ST77XX_BLACK);
 }
 
-static void drawFooter(const StatusPacket& status, bool linkAlive)
+static void drawFooter(const StatusPacket &status, bool linkAlive)
 {
+    // 🔥 rensa footer innan vi ritar nytt
+    tft.fillRect(0, 240, 240, 40, COLOR_BG);
+
     tft.drawFastHLine(0, 240, 240, COLOR_DIM);
 
     tft.setTextSize(2);
@@ -125,23 +120,15 @@ static void drawFooter(const StatusPacket& status, bool linkAlive)
     tft.print("SAT ");
     tft.print(status.satellites);
 
-    tft.setCursor(95, 250);
-    if (status.flags & STATUS_FLAG_GPS_VALID)
-    {
-        tft.setTextColor(COLOR_GOOD);
-        tft.print("GPS OK");
-    }
-    else
-    {
-        tft.setTextColor(COLOR_BAD);
-        tft.print("NO GPS");
-    }
+    drawCenteredText(
+        (status.flags & STATUS_FLAG_GPS_VALID) ? "GPS OK" : "NO GPS",
+        120, 250, 2,
+        (status.flags & STATUS_FLAG_GPS_VALID) ? COLOR_GOOD : COLOR_BAD);
 
     tft.setCursor(180, 250);
     tft.setTextColor(linkAlive ? COLOR_GOOD : COLOR_BAD);
-    tft.print(linkAlive ? "OK" : "LOST");
+    tft.print(linkAlive ? "LINK" : "LOST");
 }
-
 // =====================================================
 // Public API
 // =====================================================
@@ -200,7 +187,9 @@ void display_lcd_update(const StatusPacket& status, bool hasStatus, uint32_t but
         return;
     }
 
+    const bool doFullDraw = firstDraw;
     firstDraw = false;
+
     lastHasStatus = hasStatus;
     lastLinkAlive = linkAlive;
     lastButtonMask = buttonMask;
@@ -212,7 +201,14 @@ void display_lcd_update(const StatusPacket& status, bool hasStatus, uint32_t but
     lastFlags = status.flags;
     lastSteerState = status.steerState;
 
-    tft.fillScreen(COLOR_BG);
+    if (doFullDraw)
+    {
+        tft.fillScreen(COLOR_BG);
+    }
+    else
+    {
+        tft.fillRect(0, 36, 240, 204, COLOR_BG);
+    }
 
     if (!hasStatus)
     {

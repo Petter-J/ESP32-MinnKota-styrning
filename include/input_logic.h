@@ -61,9 +61,16 @@ private:
     void handleAutoButtons(
         const ButtonOutput& btn,
         uint32_t nowMs,
-        SystemState& sys);  
+        SystemState& sys);
 
 private:
     InputLogicConfig _cfg{};
     uint32_t _lastManualAdjustMs = 0;
+
+    uint32_t _lastValidAutoSensorMs = 0;
+    uint32_t _lastValidAnchorSensorMs = 0;
+    bool _anchorCollecting = false;
+    float _anchorSumLat = 0.0f;
+    float _anchorSumLon = 0.0f;
+    uint16_t _anchorCount = 0;
 };

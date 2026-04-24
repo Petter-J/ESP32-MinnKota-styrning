@@ -101,6 +101,16 @@ uint32_t RemoteEspNow::getCombinedMask(uint32_t nowMs) const
     return remote1Mask | remote2Mask;
 }
 
+uint32_t RemoteEspNow::lastRxTimeMs() const
+{
+    if (_remote1LastRxTimeMs > _remote2LastRxTimeMs)
+    {
+        return _remote1LastRxTimeMs;
+    }
+
+    return _remote2LastRxTimeMs;
+}
+
 void RemoteEspNow::setRemote1Mask(uint32_t buttonMask, uint32_t rxTimeMs)
 {
     _remote1Mask = buttonMask;

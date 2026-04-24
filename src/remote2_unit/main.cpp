@@ -159,20 +159,25 @@ void loop()
 {
     static uint32_t lastSendMs = 0;
     static uint32_t lastPrintMask = 0;
+    static uint32_t lastSentMask = 0;
 
     const uint32_t now = millis();
     const uint32_t buttonMask = readButtons();
 
-    // Skicka knappar - exakt som gamla remoten
-    if (now - lastSendMs >= 50)
+    // Skicka knappar 
+    const bool changed = (buttonMask != lastSentMask);
+    const bool heartbeat = (now - lastSendMs >= 150);
+
+    if (changed || heartbeat)
     {
         lastSendMs = now;
+        lastSentMask = buttonMask;
 
         RemotePacket pkt;
         pkt.buttonMask = buttonMask;
 
         esp_now_send(RECEIVER_MAC,
-                     reinterpret_cast<const uint8_t*>(&pkt),
+                     reinterpret_cast<const uint8_t *>(&pkt),
                      sizeof(pkt));
     }
 

@@ -15,6 +15,7 @@ public:
     bool sendStatus(const StatusPacket &status);
 
     uint32_t getCombinedMask(uint32_t nowMs) const;
+    uint32_t lastRxTimeMs() const;
 
 private:
     friend void onEspNowRecv(const uint8_t *mac, const uint8_t *data, int len);

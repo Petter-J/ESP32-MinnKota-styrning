@@ -4,14 +4,41 @@
 void InputLogic::begin()
 {
     _lastManualAdjustMs = 0;
+    _lastValidAutoSensorMs = 0;
+    _lastValidAnchorSensorMs = 0;
+
+    _anchorCollecting = false;
+    _anchorSumLat = 0.0f;
+    _anchorSumLon = 0.0f;
+    _anchorCount = 0;
 }
 
 void InputLogic::applyButtons(
-    const ButtonOutput& btn,
+    const ButtonOutput &btn,
     uint32_t nowMs,
-    SystemState& sys,
-    MainController& controller)
+    SystemState &sys,
+    MainController &controller)
 {
+    // 🔥 Anchor GPS sampling while holding button
+    if (btn.anchorHeld && sys.sensors.gpsValid)
+    {
+        if (!_anchorCollecting)
+        {
+            _anchorCollecting = true;
+            _anchorSumLat = 0.0f;
+            _anchorSumLon = 0.0f;
+            _anchorCount = 0;
+        }
+
+        _anchorSumLat += sys.sensors.latitudeDeg;
+        _anchorSumLon += sys.sensors.longitudeDeg;
+        _anchorCount++;
+    }
+    else
+    {
+        _anchorCollecting = false;
+    }
+
     handleStop(btn, nowMs, sys, controller);
 
     if (sys.mode != SystemMode::STOP)
@@ -24,33 +51,83 @@ void InputLogic::applyButtons(
     }
 
     handleManualButtons(btn, nowMs, sys);
-    handleAutoButtons(btn, nowMs, sys);   
+    handleAutoButtons(btn, nowMs, sys);
 }
 
 void InputLogic::applySafety(
     uint32_t nowMs,
-    SystemState& sys,
-    MainController& controller)
+    SystemState &sys,
+    MainController &controller)
 {
-    (void)nowMs;
+    // =========================
+    // COMMAND TIMEOUT (link lost)
+    // =========================
+    const uint32_t commandAgeMs =
+        (nowMs >= sys.lastCommandTimeMs)
+            ? (nowMs - sys.lastCommandTimeMs)
+            : 0;
+
+    if (sys.lastCommandTimeMs > 0 &&
+        commandAgeMs > SafetyConfig::COMMAND_TIMEOUT_MS)
+    {
+        if (sys.mode != SystemMode::STOP)
+        {
+            DBG_PRINTF("[SAFE] command timeout age=%lu -> STOP\n", commandAgeMs);
+            setMode(SystemMode::STOP, nowMs, sys, controller);
+        }
+        return;
+    }
 
     if (!SafetyConfig::ENABLE_SENSOR_MODE_SAFETY)
-    return;
+        return;
 
+    const bool sensorsOk =
+        sys.sensors.gpsValid &&
+        sys.sensors.headingValid;
+
+    // =========================
+    // AUTO
+    // =========================
     if (sys.mode == SystemMode::AUTO)
     {
-        if (!sys.sensors.headingValid || !sys.sensors.gpsValid)
+        if (sensorsOk)
         {
-            DBG_PRINTLN("[SAFE] AUTO lost GPS/heading -> STOP");
-            setMode(SystemMode::STOP, millis(), sys, controller);
+            _lastValidAutoSensorMs = nowMs;
+            return;
+        }
+
+        if (_lastValidAutoSensorMs == 0)
+        {
+            _lastValidAutoSensorMs = nowMs;
+        }
+
+        if (nowMs - _lastValidAutoSensorMs > SafetyConfig::SENSOR_FAIL_TIMEOUT_MS)
+        {
+            DBG_PRINTLN("[SAFE] AUTO sensor timeout -> STOP");
+            setMode(SystemMode::STOP, nowMs, sys, controller);
         }
     }
+
+    // =========================
+    // ANCHOR
+    // =========================
     else if (sys.mode == SystemMode::ANCHOR)
     {
-        if (!sys.sensors.gpsValid || !sys.sensors.headingValid)
+        if (sensorsOk)
         {
-            DBG_PRINTLN("[SAFE] ANCHOR lost GPS/heading -> STOP");
-            setMode(SystemMode::STOP, millis(), sys, controller);
+            _lastValidAnchorSensorMs = nowMs;
+            return;
+        }
+
+        if (_lastValidAnchorSensorMs == 0)
+        {
+            _lastValidAnchorSensorMs = nowMs;
+        }
+
+        if (nowMs - _lastValidAnchorSensorMs > SafetyConfig::SENSOR_FAIL_TIMEOUT_MS)
+        {
+            DBG_PRINTLN("[SAFE] ANCHOR sensor timeout -> STOP");
+            setMode(SystemMode::STOP, nowMs, sys, controller);
         }
     }
 }
@@ -58,13 +135,22 @@ void InputLogic::applySafety(
 void InputLogic::setMode(
     SystemMode newMode,
     uint32_t nowMs,
-    SystemState& sys,
-    MainController& controller)
+    SystemState &sys,
+    MainController &controller)
 {
     if (sys.mode == newMode)
         return;
 
     const SystemMode oldMode = sys.mode;
+
+    // Reset anchor sampling när vi går till STOP
+    if (newMode == SystemMode::STOP)
+    {
+        _anchorCollecting = false;
+        _anchorSumLat = 0.0f;
+        _anchorSumLon = 0.0f;
+        _anchorCount = 0;
+    }
 
     // Specialfall: AUTO -> MANUAL, ta över aktuell thrust
     if (oldMode == SystemMode::AUTO && newMode == SystemMode::MANUAL)
@@ -72,8 +158,7 @@ void InputLogic::setMode(
         sys.manualThrustPct = clampf(
             sys.actuators.thrustPct,
             ManualControlConfig::THRUST_START_MIN_PCT,
-            Limits::THRUST_MAX_PCT
-        );
+            Limits::THRUST_MAX_PCT);
 
         sys.manualSteerPct = 0.0f;
     }
@@ -124,37 +209,36 @@ void InputLogic::handleModeButtons(
         return;
     }
 
-    if (btn.requestAuto)
+    if (btn.requestAnchor)
     {
-        if (sys.mode == SystemMode::AUTO)
+        if (sys.mode == SystemMode::ANCHOR)
+        {
             setMode(SystemMode::STOP, nowMs, sys, controller);
+        }
         else
-            setMode(SystemMode::AUTO, nowMs, sys, controller);
+        {
+            if (sys.actuators.thrustPct <= AnchorControlConfig::MAX_ENTRY_THRUST_PCT)
+            {
+                if (_anchorCount > 0)
+                {
+                    sys.anchorLatDeg = _anchorSumLat / _anchorCount;
+                    sys.anchorLonDeg = _anchorSumLon / _anchorCount;
+                    sys.anchorActive = true;
+
+                    DBG_PRINTF("[ANCHOR] avg fix used (%u samples)\n", _anchorCount);
+                }
+
+                setMode(SystemMode::ANCHOR, nowMs, sys, controller);
+            }
+            else
+            {
+                DBG_PRINTF("[ANCHOR] thrust too high (%.1f) -> STOP\n", sys.actuators.thrustPct);
+                setMode(SystemMode::STOP, nowMs, sys, controller);
+            }
+        }
 
         return;
     }
-
-    if (btn.requestAnchor)
-{
-    if (sys.mode == SystemMode::ANCHOR)
-    {
-        setMode(SystemMode::STOP, nowMs, sys, controller);
-    }
-    else
-    {
-        if (sys.actuators.thrustPct <= AnchorControlConfig::MAX_ENTRY_THRUST_PCT)
-        {
-            setMode(SystemMode::ANCHOR, nowMs, sys, controller);
-        }
-        else
-        {
-            DBG_PRINTF("[ANCHOR] thrust too high (%.1f) -> STOP\n", sys.actuators.thrustPct);
-            setMode(SystemMode::STOP, nowMs, sys, controller);
-        }
-    }
-
-    return;
-}
 }
 
 void InputLogic::handleManualButtons(

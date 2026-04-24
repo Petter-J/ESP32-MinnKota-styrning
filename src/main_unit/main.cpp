@@ -102,9 +102,6 @@ for (int i = 0; i < 5; i++)
     delay(500);
 }
 
-    pinMode(PinConfig::STATUS_LED, OUTPUT);
-    digitalWrite(PinConfig::STATUS_LED, LOW);
-
     pinMode(ButtonPins::STOP, INPUT_PULLUP);
     pinMode(ButtonPins::MODE_MANUAL, INPUT_PULLUP);
     pinMode(ButtonPins::MODE_AUTO, INPUT_PULLUP);
@@ -156,13 +153,7 @@ void loop()
 
     const uint32_t now = millis();
 
-    // Heartbeat LED
-    if (now - lastHeartbeatMs >= TimingConfig::HEARTBEAT_INTERVAL_MS)
-    {
-        lastHeartbeatMs = now;
-        ledState = !ledState;
-        digitalWrite(PinConfig::STATUS_LED, ledState ? HIGH : LOW);
-    }
+    
 
     // Main loop pacing
     if (now - lastMainMs < TimingConfig::MAIN_LOOP_INTERVAL_MS)
@@ -171,14 +162,40 @@ void loop()
     }
     lastMainMs = now;
 
+    // 0. Update sensors first
+    gNavigation.update(gSys.sensors);
+
     // 1. Read local buttons
     const uint32_t localMask = readLocalButtons();
 
     // 2. Read ALL remotes (combined inside RemoteEspNow)
     const uint32_t remoteMask = gRemote.getCombinedMask(now);
 
+    const uint32_t lastRx = gRemote.lastRxTimeMs();
+
+    const uint32_t rxAge =
+        (lastRx > 0 && now >= lastRx)
+            ? (now - lastRx)
+            : 999999;
+
+    if (lastRx > 0 && rxAge < 500)
+    {
+        gSys.lastCommandTimeMs = now;
+    }
+
+    // link/command heartbeat time
+   // gSys.lastCommandTimeMs = gRemote.lastRxTimeMs();
+
+    
+
     // 3. Combine all inputs
     const uint32_t effectiveMask = localMask | remoteMask;
+
+    if (effectiveMask != 0)
+    {
+        DBG_PRINTF("[BTN] local=0x%08lx remote=0x%08lx effective=0x%08lx\n",
+                   localMask, remoteMask, effectiveMask);
+    }
 
     // 4. Store command
     gSys.lastCommand.buttonMask = effectiveMask;
@@ -215,24 +232,19 @@ void loop()
 
     pkt.satellites = (uint8_t)gSys.sensors.satellites;
 
-    // 🔥 FIX: steer baserat på knapp, inte motor
-    constexpr uint32_t LEFT_BIT = (1UL << 6);
-    constexpr uint32_t RIGHT_BIT = (1UL << 7);
+    // 🔥 STEER baserat på faktisk motorstyrning
 
-    const bool left = (effectiveMask & LEFT_BIT) != 0;
-    const bool right = (effectiveMask & RIGHT_BIT) != 0;
-
-    if (left && !right)
+    if (gSys.actuators.steerPct < -1.0f)
     {
         pkt.steerState = -1;
     }
-    else if (right && !left)
+    else if (gSys.actuators.steerPct > 1.0f)
     {
         pkt.steerState = 1;
     }
     else
     {
-        pkt.steerState = 0; // båda eller ingen
+        pkt.steerState = 0;
     }
 
     pkt.flags = 0;
@@ -273,7 +285,7 @@ void loop()
     }
     else if (!useSimulator)
     {
-        gNavigation.update(gSys.sensors);
+       // gNavigation.update(gSys.sensors);
     }
 
     // 11. Telemetry

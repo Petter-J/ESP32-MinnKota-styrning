@@ -71,6 +71,8 @@ ButtonOutput ButtonManager::update(uint32_t rawMask, uint32_t nowMs)
     out.steerLeftHeld  = isButtonPressed(_stableMask, ButtonId::STEER_LEFT);
     out.steerRightHeld = isButtonPressed(_stableMask, ButtonId::STEER_RIGHT);
 
+    out.anchorHeld = isButtonPressed(_stableMask, ButtonId::MODE_ANCHOR);
+
     return out;
 }
 

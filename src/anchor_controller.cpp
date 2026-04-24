@@ -54,15 +54,20 @@ float AnchorController::bearingDeg(double lat1Deg, double lon1Deg, double lat2De
 
 void AnchorController::onEnter(SystemState &sys)
 {
-    if (sys.sensors.gpsValid)
+    // Om InputLogic redan har satt anchor från medelvärde,
+    // skriv inte över den här.
+    if (!sys.anchorActive)
     {
-        sys.anchorLatDeg = sys.sensors.latitudeDeg;
-        sys.anchorLonDeg = sys.sensors.longitudeDeg;
-        sys.anchorActive = true;
-    }
-    else
-    {
-        sys.anchorActive = false;
+        if (sys.sensors.gpsValid)
+        {
+            sys.anchorLatDeg = sys.sensors.latitudeDeg;
+            sys.anchorLonDeg = sys.sensors.longitudeDeg;
+            sys.anchorActive = true;
+        }
+        else
+        {
+            sys.anchorActive = false;
+        }
     }
 
     if (sys.sensors.headingValid)
@@ -70,7 +75,6 @@ void AnchorController::onEnter(SystemState &sys)
         sys.targetHeadingDeg = sys.sensors.headingDeg;
     }
 }
-
 ActuatorCommand AnchorController::update(float dtSec, SystemState &sys, PidController &headingPid)
 {
     ActuatorCommand out;
@@ -86,7 +90,7 @@ ActuatorCommand AnchorController::update(float dtSec, SystemState &sys, PidContr
 
     const float anchorRadiusM = 3.0f;
     const float fullThrustDistM = 12.0f;
-    const float minAnchorThrustPct = 18.0f;
+    const float minAnchorThrustPct = 1.0f;
     const float maxAnchorThrustPct = 45.0f;
 
     const float distM = distanceMeters(

@@ -12,7 +12,7 @@ namespace ManualControlConfig
     static constexpr float THRUST_STEP_PCT = 5.0f;
     static constexpr uint32_t REPEAT_MS = 120;
 
-    static constexpr float STEER_JOG_PCT = 100.0f;
+    static constexpr float STEER_JOG_PCT = 80.0f;
 }
 
 // ============================================================
@@ -40,8 +40,8 @@ namespace AnchorControlConfig
 namespace ButtonPins
 {
     // ESP32-S3 valid GPIOs (internal pull-ups, active LOW to GND)
-    static constexpr int STOP         = 14;
-    static constexpr int MODE_MANUAL  = 8;
+    static constexpr int STOP         = 8;
+    static constexpr int MODE_MANUAL  = 13;
     static constexpr int MODE_AUTO    = 12;
     static constexpr int MODE_ANCHOR  = 11;
 
@@ -64,7 +64,6 @@ namespace PinConfig
     static constexpr int STEER_DIR  = 17;
     static constexpr int STEER_PWM  = 18;
 
-    static constexpr int STATUS_LED = 13;
 }
 
 // ============================================================
@@ -186,6 +185,9 @@ namespace SimConfig
 namespace SafetyConfig
 {
     static constexpr bool ENABLE_SENSOR_MODE_SAFETY = false;
+
+    static constexpr uint32_t SENSOR_FAIL_TIMEOUT_MS = 2000;
+    static constexpr uint32_t COMMAND_TIMEOUT_MS = 3000;
 }
 
 // ============================================================
