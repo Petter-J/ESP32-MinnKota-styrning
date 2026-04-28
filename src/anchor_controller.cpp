@@ -77,7 +77,7 @@ void AnchorController::onEnter(SystemState &sys)
 }
 ActuatorCommand AnchorController::update(float dtSec, SystemState &sys, PidController &headingPid)
 {
-    ActuatorCommand out;
+    ActuatorCommand out{};
     strcpy(sys.sensors.autoState, "ANCHOR");
 
     if (!sys.anchorActive || !sys.sensors.gpsValid || !sys.sensors.headingValid)
@@ -93,9 +93,38 @@ ActuatorCommand AnchorController::update(float dtSec, SystemState &sys, PidContr
     const float minAnchorThrustPct = 1.0f;
     const float maxAnchorThrustPct = 45.0f;
 
+    static constexpr uint8_t GPS_AVG_COUNT = 8;
+
+    static double latBuf[GPS_AVG_COUNT] = {};
+    static double lonBuf[GPS_AVG_COUNT] = {};
+    static uint8_t index = 0;
+    static uint8_t count = 0;
+
+    latBuf[index] = sys.sensors.latitudeDeg;
+    lonBuf[index] = sys.sensors.longitudeDeg;
+
+    index = (index + 1) % GPS_AVG_COUNT;
+
+    if (count < GPS_AVG_COUNT)
+    {
+        count++;
+    }
+
+    double avgLat = 0.0;
+    double avgLon = 0.0;
+
+    for (uint8_t i = 0; i < count; ++i)
+    {
+        avgLat += latBuf[i];
+        avgLon += lonBuf[i];
+    }
+
+    avgLat /= count;
+    avgLon /= count;
+
     const float distM = distanceMeters(
-        sys.sensors.latitudeDeg,
-        sys.sensors.longitudeDeg,
+        avgLat,
+        avgLon,
         sys.anchorLatDeg,
         sys.anchorLonDeg);
 
@@ -108,8 +137,8 @@ ActuatorCommand AnchorController::update(float dtSec, SystemState &sys, PidContr
     }
 
     const float targetBearingDeg = bearingDeg(
-        sys.sensors.latitudeDeg,
-        sys.sensors.longitudeDeg,
+        avgLat,
+        avgLon,
         sys.anchorLatDeg,
         sys.anchorLonDeg);
 

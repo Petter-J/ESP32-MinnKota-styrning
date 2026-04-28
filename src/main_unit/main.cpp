@@ -9,6 +9,7 @@
 #include "buttons.h"
 #include "input_logic.h"
 #include "navigation.h"
+#include "ota_update.h"
 
 // ============================================================
 // Globals
@@ -125,6 +126,7 @@ for (int i = 0; i < 5; i++)
     gButtons.begin();
     gInputLogic.begin();
     gNavigation.begin();
+    ota_begin();
 
     gSys.mode = SystemMode::STOP;
     gSys.motorsEnabled = true;
@@ -153,9 +155,9 @@ void loop()
 
     const uint32_t now = millis();
 
-    
+    ota_handle();
 
-    // Main loop pacing
+        // Main loop pacing
     if (now - lastMainMs < TimingConfig::MAIN_LOOP_INTERVAL_MS)
     {
         return;
