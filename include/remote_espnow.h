@@ -17,6 +17,9 @@ public:
     uint32_t getCombinedMask(uint32_t nowMs) const;
     uint32_t lastRxTimeMs() const;
 
+    bool getBoatHeading(float &headingDeg, uint32_t nowMs) const;
+    bool hasBoatImu(uint32_t nowMs) const;
+
 private:
     friend void onEspNowRecv(const uint8_t *mac, const uint8_t *data, int len);
 
@@ -30,4 +33,8 @@ private:
 
     uint32_t _remote1LastRxTimeMs = 0;
     uint32_t _remote2LastRxTimeMs = 0;
+
+    float _boatHeadingDeg = 0.0f;
+    bool _boatImuValid = false;
+    uint32_t _boatImuLastRxTimeMs = 0;
 };

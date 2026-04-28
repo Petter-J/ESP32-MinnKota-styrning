@@ -16,6 +16,18 @@ float AnchorController::radToDeg(float rad)
     return rad * 57.295779513082320876f;
 }
 
+void AnchorController::resetGpsAverage()
+{
+    mGpsIndex = 0;
+    mGpsCount = 0;
+
+    for (uint8_t i = 0; i < GPS_AVG_COUNT; ++i)
+    {
+        mLatBuf[i] = 0.0;
+        mLonBuf[i] = 0.0;
+    }
+}
+
 float AnchorController::distanceMeters(double lat1Deg, double lon1Deg, double lat2Deg, double lon2Deg)
 {
     const float lat1 = degToRad((float)lat1Deg);
@@ -54,6 +66,8 @@ float AnchorController::bearingDeg(double lat1Deg, double lon1Deg, double lat2De
 
 void AnchorController::onEnter(SystemState &sys)
 {
+
+    resetGpsAverage();
     // Om InputLogic redan har satt anchor från medelvärde,
     // skriv inte över den här.
     if (!sys.anchorActive)
@@ -93,34 +107,32 @@ ActuatorCommand AnchorController::update(float dtSec, SystemState &sys, PidContr
     const float minAnchorThrustPct = 1.0f;
     const float maxAnchorThrustPct = 45.0f;
 
-    static constexpr uint8_t GPS_AVG_COUNT = 8;
+    mLatBuf[mGpsIndex] = sys.sensors.latitudeDeg;
+    mLonBuf[mGpsIndex] = sys.sensors.longitudeDeg;
 
-    static double latBuf[GPS_AVG_COUNT] = {};
-    static double lonBuf[GPS_AVG_COUNT] = {};
-    static uint8_t index = 0;
-    static uint8_t count = 0;
+    mGpsIndex = (mGpsIndex + 1) % GPS_AVG_COUNT;
 
-    latBuf[index] = sys.sensors.latitudeDeg;
-    lonBuf[index] = sys.sensors.longitudeDeg;
-
-    index = (index + 1) % GPS_AVG_COUNT;
-
-    if (count < GPS_AVG_COUNT)
+    if (mGpsCount < GPS_AVG_COUNT)
     {
-        count++;
+        mGpsCount++;
+    }
+
+    if (mGpsCount < GPS_AVG_COUNT)
+    {
+        mGpsCount++;
     }
 
     double avgLat = 0.0;
     double avgLon = 0.0;
 
-    for (uint8_t i = 0; i < count; ++i)
+    for (uint8_t i = 0; i < mGpsCount; ++i)
     {
-        avgLat += latBuf[i];
-        avgLon += lonBuf[i];
+        avgLat += mLatBuf[i];
+        avgLon += mLonBuf[i];
     }
 
-    avgLat /= count;
-    avgLon /= count;
+    avgLat /= mGpsCount;
+    avgLon /= mGpsCount;
 
     const float distM = distanceMeters(
         avgLat,

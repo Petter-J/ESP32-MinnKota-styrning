@@ -166,7 +166,7 @@ void loop()
 
     // Skicka knappar 
     const bool changed = (buttonMask != lastSentMask);
-    const bool heartbeat = (now - lastSendMs >= 150);
+    const bool heartbeat = (now - lastSendMs >= 50);
 
     if (changed || heartbeat)
     {

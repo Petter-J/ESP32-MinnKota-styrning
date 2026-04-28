@@ -68,19 +68,24 @@ static uint32_t readLocalButtons()
 static void printTelemetry(const SystemState &sys)
 {
     DBG_PRINTF(
-        "[TEL] mode=%s auto=%s hdg=%.1f hdgSrc=%s hdgValid=%d gpsValid=%d spdValid=%d sats=%u lat=%.6f lon=%.6f  gpsSpd=%.2f speedMps=%.2f cog=%.1f spdPct=%.1f tgtH=%.1f tgtS=%.1f actT=%.1f actS=%.1f\n",
+        "[TEL] mode=%s auto=%s hdg=%.1f hdgSrc=%s hdgValid=%d boat=%.1f boatV=%d motor=%.1f motorV=%d mAng=%.1f gpsValid=%d spdValid=%d sats=%u lat=%.6f lon=%.6f gpsSpd=%.2f speedMps=%.2f cog=%.1f spdPct=%.1f tgtH=%.1f tgtS=%.1f actT=%.1f actS=%.1f\n",
         modeToString(sys.mode),
         sys.sensors.autoState,
         sys.sensors.headingDeg,
         sys.sensors.headingSource,
         sys.sensors.headingValid ? 1 : 0,
+        sys.sensors.boatHeadingDeg,
+        sys.sensors.boatImuValid ? 1 : 0,
+        sys.sensors.motorHeadingDeg,
+        sys.sensors.motorImuValid ? 1 : 0,
+        sys.sensors.motorAngleDeg,
         sys.sensors.gpsValid ? 1 : 0,
         sys.sensors.speedValid ? 1 : 0,
         sys.sensors.satellites,
         sys.sensors.latitudeDeg,
         sys.sensors.longitudeDeg,
         sys.sensors.gpsSpeedMps,
-        sys.sensors.speedMps, // 🔹 här
+        sys.sensors.speedMps, 
         sys.sensors.courseOverGroundDeg,
         sys.sensors.speedPct,
         sys.targetHeadingDeg,
@@ -157,6 +162,18 @@ void loop()
 
     ota_handle();
 
+    float remoteBoatHeadingDeg = 0.0f;
+
+    if (gRemote.getBoatHeading(remoteBoatHeadingDeg, now))
+    {
+        gSys.sensors.boatHeadingDeg = remoteBoatHeadingDeg;
+        gSys.sensors.boatImuValid = true;
+    }
+    else
+    {
+        gSys.sensors.boatImuValid = false;
+    }
+
         // Main loop pacing
     if (now - lastMainMs < TimingConfig::MAIN_LOOP_INTERVAL_MS)
     {
@@ -229,7 +246,15 @@ void loop()
     pkt.manualThrustPct = (uint8_t)roundf(gSys.manualThrustPct);
     pkt.targetSpeedPct = (uint8_t)roundf(gSys.targetSpeedPct);
 
-    pkt.headingDeg10 = (uint16_t)roundf(gSys.sensors.headingDeg * 10.0f);
+    if (gSys.sensors.boatImuValid)
+    {
+        pkt.headingDeg10 = (uint16_t)roundf(gSys.sensors.boatHeadingDeg * 10.0f);
+    }
+    else
+    {
+        pkt.headingDeg10 = (uint16_t)roundf(gSys.sensors.headingDeg * 10.0f);
+    }
+    
     pkt.targetHeadingDeg10 = (uint16_t)roundf(gSys.targetHeadingDeg * 10.0f);
 
     pkt.satellites = (uint8_t)gSys.sensors.satellites;
@@ -277,18 +302,6 @@ void loop()
         gRemote.sendStatusRemote2(pkt2);
     }
 
-    // 10. Sensor update
-    if (useSimulator && now - lastSimMs >= TimingConfig::SIM_INTERVAL_MS)
-    {
-        const float dtSec = (now - lastSimMs) / 1000.0f;
-        lastSimMs = now;
-
-        gSimulator.update(dtSec, gSys.actuators, gSys.sensors);
-    }
-    else if (!useSimulator)
-    {
-       // gNavigation.update(gSys.sensors);
-    }
 
     // 11. Telemetry
     if (now - lastPrintMs >= TimingConfig::PRINT_INTERVAL_MS)

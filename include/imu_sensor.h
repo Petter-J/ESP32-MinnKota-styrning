@@ -5,6 +5,12 @@
 #include "config.h"
 #include "types.h"
 
+struct HeadingCorrectionPoint
+{
+    float raw;
+    float corr;
+};
+
 struct ImuHeading
 {
     bool valid = false;
@@ -16,7 +22,12 @@ class ImuSensor
 {
 public:
     bool begin();
-    void update(ImuHeading& out);
+    bool begin(int sdaPin, int sclPin, uint32_t freqHz, float headingOffsetDeg);
+
+    void update(ImuHeading &out);
+
+    void setHeadingOffset(float offsetDeg);
+    void setCorrectionTable(const HeadingCorrectionPoint *table, uint8_t count);
 
 private:
     bool enableReports();
@@ -28,6 +39,10 @@ private:
 
     float _headingDeg = 0.0f;
     bool _valid = false;
+
+    float _headingOffsetDeg = 0.0f;
+    const HeadingCorrectionPoint *_correctionTable = nullptr;
+    uint8_t _correctionCount = 0;
 
     uint8_t _imuFailCount = 0;
     static constexpr uint8_t IMU_FAIL_LIMIT = 10;

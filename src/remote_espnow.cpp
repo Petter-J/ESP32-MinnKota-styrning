@@ -12,7 +12,7 @@ static RemoteEspNow* s_instance = nullptr;
 // ------------------------------------------------------------
 // MAC addresses of remotes
 // ------------------------------------------------------------
-static uint8_t s_remote1PeerMac[6] = { 0xF0, 0xF5, 0xBD, 0x73, 0x87, 0x28 }; // gamla remote
+static uint8_t s_remote1PeerMac[6] = { 0xB4, 0x3A, 0x45, 0xB9, 0xE1, 0x6C };   // gamla remote
 static uint8_t s_remote2PeerMac[6] = { 0x20, 0x6E, 0xF1, 0x9B, 0xB3, 0x08 }; // remote2 S3
 
 // ------------------------------------------------------------
@@ -31,9 +31,19 @@ void onEspNowRecv(const uint8_t* mac, const uint8_t* data, int len)
 
     const uint32_t now = millis();
 
+    const bool boatImuValid = (pkt.boatFlags & REMOTE_FLAG_BOAT_IMU_VALID) != 0;
+    const float boatHeadingDeg = ((float)pkt.boatHeadingDeg10) / 10.0f;
+
     if (memcmp(mac, s_remote1PeerMac, 6) == 0)
     {
         s_instance->setRemote1Mask(pkt.buttonMask, now);
+
+        if (boatImuValid)
+        {
+            s_instance->_boatHeadingDeg = boatHeadingDeg;
+            s_instance->_boatImuValid = true;
+            s_instance->_boatImuLastRxTimeMs = now;
+        }
     }
     else if (memcmp(mac, s_remote2PeerMac, 6) == 0)
     {
@@ -52,6 +62,9 @@ void RemoteEspNow::begin()
     _remote2Mask = 0;
     _remote1LastRxTimeMs = 0;
     _remote2LastRxTimeMs = 0;
+    _boatHeadingDeg = 0.0f;
+    _boatImuValid = false;
+    _boatImuLastRxTimeMs = 0;
 
     WiFi.mode(WIFI_STA);
     WiFi.disconnect();
@@ -154,4 +167,26 @@ bool RemoteEspNow::sendStatus(const StatusPacket &status)
     const bool ok1 = sendStatusRemote1(status);
     const bool ok2 = sendStatusRemote2(status);
     return ok1 || ok2;
+}
+
+bool RemoteEspNow::getBoatHeading(float &headingDeg, uint32_t nowMs) const
+{
+    static constexpr uint32_t TIMEOUT_MS = 500;
+
+    if (!_boatImuValid)
+        return false;
+
+    if ((nowMs - _boatImuLastRxTimeMs) >= TIMEOUT_MS)
+        return false;
+
+    headingDeg = _boatHeadingDeg;
+    return true;
+}
+
+bool RemoteEspNow::hasBoatImu(uint32_t nowMs) const
+{
+    static constexpr uint32_t TIMEOUT_MS = 500;
+
+    return _boatImuValid &&
+           ((nowMs - _boatImuLastRxTimeMs) < TIMEOUT_MS);
 }

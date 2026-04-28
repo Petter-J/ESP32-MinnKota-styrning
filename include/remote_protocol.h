@@ -4,8 +4,11 @@
 struct RemotePacket
 {
     uint32_t buttonMask = 0;
-};
 
+    // Fast BNO085 i båten / remote-enheten
+    uint16_t boatHeadingDeg10 = 0; // grader * 10
+    uint8_t boatFlags = 0;
+};
 struct StatusPacket
 {
     uint8_t mode = 0;
@@ -20,3 +23,4 @@ struct StatusPacket
 };
 
 static constexpr uint8_t STATUS_FLAG_GPS_VALID = 1 << 0;
+static constexpr uint8_t REMOTE_FLAG_BOAT_IMU_VALID = 1 << 0;

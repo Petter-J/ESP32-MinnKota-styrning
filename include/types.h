@@ -49,33 +49,43 @@ struct RemoteCommand
 
 struct SensorData
 {
-    float headingDeg = 0.0f;
-    float speedPct   = 0.0f;
+    
+        // Primär heading som resten av systemet använder
+        // Just nu ska denna komma från fast BNO085 i båten.
+        float headingDeg = 0.0f;
 
-    //  NY (riktig fart)
-    float speedMps   = 0.0f;
+        // Separata IMU-värden för framtida dual-BNO085-logik
+        float boatHeadingDeg = 0.0f;
+        float motorHeadingDeg = 0.0f;
+        float motorAngleDeg = 0.0f;
 
+        bool boatImuValid = false;
+        bool motorImuValid = false;
 
+        float speedPct = 0.0f;
 
-    float posX = 0.0f;
-    float posY = 0.0f;
+        //  NY (riktig fart)
+        float speedMps = 0.0f;
 
-    // GPS / navigation
-    double latitudeDeg  = 0.0;
-    double longitudeDeg = 0.0;
+        float posX = 0.0f;
+        float posY = 0.0f;
 
-    float gpsSpeedMps = 0.0f;
-    float courseOverGroundDeg = 0.0f;
+        // GPS / navigation
+        double latitudeDeg = 0.0;
+        double longitudeDeg = 0.0;
 
-    int satellites = 0;
+        float gpsSpeedMps = 0.0f;
+        float courseOverGroundDeg = 0.0f;
 
-    bool headingValid = true;
-    bool speedValid   = true;
-    bool gpsValid     = false;
+        int satellites = 0;
 
-    char headingSource[5] = "NONE";
-    char autoState[10] = "NONE";
-};
+        bool headingValid = true;
+        bool speedValid = true;
+        bool gpsValid = false;
+
+        char headingSource[5] = "NONE";
+        char autoState[10] = "NONE";
+    };
 
 struct ActuatorCommand
 {

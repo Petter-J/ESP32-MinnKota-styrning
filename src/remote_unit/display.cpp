@@ -1,51 +1,35 @@
 #include "display.h"
 
 #include <Arduino.h>
-#include <Wire.h>
+#include <SPI.h>
 #include <Adafruit_GFX.h>
-#include <Adafruit_SH110X.h>
+#include <Adafruit_SSD1327.h>
 
-// =====================================================
-// Display object
-// =====================================================
-Adafruit_SH1106G display(128, 64, &Wire, -1);
+#define OLED_CS 8
+#define OLED_DC 38
+#define OLED_RST 39
 
-// =====================================================
-// Internal state
-// =====================================================
+Adafruit_SSD1327 display(128, 96, &SPI, OLED_DC, OLED_RST, OLED_CS);
+
 static bool gDisplayAvailable = false;
 
-// =====================================================
-// Helpers
-// =====================================================
-static bool i2cDevicePresent(uint8_t addr)
-{
-    Wire.beginTransmission(addr);
-    return (Wire.endTransmission() == 0);
-}
-
-static const char* modeText(uint8_t mode)
+static const char *modeText(uint8_t mode)
 {
     switch (mode)
     {
-        case 0: return "STOP";
-        case 1: return "MANUAL";
-        case 2: return "AUTO";
-        case 3: return "ANCHOR";
-        default: return "UNKNOWN";
+    case 0:
+        return "STOP";
+    case 1:
+        return "MANUAL";
+    case 2:
+        return "AUTO";
+    case 3:
+        return "ANCHOR";
+    default:
+        return "UNKNOWN";
     }
 }
 
-static const char* steerArrow(int8_t steerState)
-{
-    if (steerState < 0) return "STEER: <--|";
-    if (steerState > 0) return "STEER:    |-->";
-    return "STEER:    |";
-}
-
-// =====================================================
-// Public API
-// =====================================================
 bool display_is_available()
 {
     return gDisplayAvailable;
@@ -53,34 +37,33 @@ bool display_is_available()
 
 void display_set_brightness(uint8_t value)
 {
-    display.oled_command(0x81);
-    display.oled_command(value);  
-}
+    if (!gDisplayAvailable)
+        return;
 
+    display.setContrast(value);
+}
 
 void display_begin()
 {
-    Wire.begin(8, 9);   // SDA, SCL för SparkFun Thing Plus ESP32-S3
-    Wire.setTimeOut(50);
+    SPI.begin(36, -1, 35, OLED_CS); // SCK, MISO, MOSI, CS
 
-    gDisplayAvailable = display.begin(0x3C, true);
+    gDisplayAvailable = display.begin(0x3D);
     if (!gDisplayAvailable)
         return;
 
-    display_set_brightness(20); // Set contrast to a fixed value (0-255). Adjust as needed.
-
-    display.setTextColor(SH110X_WHITE);
     display.clearDisplay();
+    display.setTextColor(SSD1327_WHITE);
+    display.setTextSize(1);
+    display.setCursor(0, 0);
+    display.print("REMOTE OK");
     display.display();
 }
 
-
-void display_update(const StatusPacket& status, bool hasStatus, uint32_t buttonMask, bool linkAlive)
+void display_update(const StatusPacket &status, bool hasStatus, uint32_t buttonMask, bool linkAlive)
 {
-    if (!gDisplayAvailable)
-        return;
+    (void)buttonMask;
 
-    if (!i2cDevicePresent(0x3C))
+    if (!gDisplayAvailable)
         return;
 
     display.clearDisplay();
@@ -92,23 +75,21 @@ void display_update(const StatusPacket& status, bool hasStatus, uint32_t buttonM
         display.print("NO DATA");
 
         display.setTextSize(1);
-        display.setCursor(0, 54);
+        display.setCursor(0, 80);
         display.print(linkAlive ? "LINK OK" : "LINK LOST");
 
         display.display();
         return;
     }
 
-    // Row 1: mode, size 2
     display.setTextSize(2);
     display.setCursor(0, 0);
     display.print(modeText(status.mode));
 
-    // Row 2
     display.setTextSize(1);
-    display.setCursor(0, 24);
+    display.setCursor(0, 32);
 
-    if (status.mode == 1) // MANUAL
+    if (status.mode == 1)
     {
         display.print("THR ");
         display.print(status.manualThrustPct);
@@ -121,21 +102,15 @@ void display_update(const StatusPacket& status, bool hasStatus, uint32_t buttonM
         display.print("%");
     }
 
-    // Row 3
-    display.setCursor(0, 38);
+    display.setCursor(0, 48);
+    display.print("HDG ");
+    display.print(status.headingDeg10 / 10);
 
-    if (status.mode == 1) // MANUAL
-    {
-        display.print(steerArrow(status.steerState));
-    }
-    else
-    {
-        display.print("HDG ");
-        display.print(status.targetHeadingDeg10 / 10);
-    }
+    display.setCursor(0, 64);
+    display.print("SAT ");
+    display.print(status.satellites);
 
-    // Row 4
-    display.setCursor(0, 54);
+    display.setCursor(0, 80);
     display.print(linkAlive ? "LINK OK" : "LINK LOST");
 
     display.display();

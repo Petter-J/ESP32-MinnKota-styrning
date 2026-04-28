@@ -1,11 +1,41 @@
 #include "imu_sensor.h"
 
+bool ImuSensor::begin(int sdaPin, int sclPin, uint32_t freqHz, float headingOffsetDeg)
+{
+    Wire.begin(sdaPin, sclPin);
+    Wire.setClock(freqHz);
+
+    _headingDeg = 0.0f;
+    _valid = false;
+    _imuFailCount = 0;
+    _headingOffsetDeg = headingOffsetDeg;
+
+    if (!_bno08x.begin_I2C())
+    {
+        Serial.println("[NAV] BNO085 not found on I2C");
+        return false;
+    }
+
+    Serial.println("[NAV] BNO085 found");
+
+    if (enableReports())
+    {
+        Serial.println("[NAV] IMU reports enabled");
+        return true;
+    }
+
+    Serial.println("[NAV] Failed to enable IMU reports");
+    return false;
+}
+
 bool ImuSensor::begin()
 {
     Wire.begin(CompassConfig::SDA_PIN, CompassConfig::SCL_PIN);
     Wire.setClock(CompassConfig::FREQ_HZ);
 
     _headingDeg = 0.0f;
+    // Default single-IMU config (kan senare ersättas med boat/motor-specifik config)
+    _headingOffsetDeg = CompassConfig::HEADING_OFFSET_DEG;
     _valid = false;
     _imuFailCount = 0;
 
@@ -27,6 +57,17 @@ bool ImuSensor::begin()
     return false;
 }
 
+void ImuSensor::setHeadingOffset(float offsetDeg)
+{
+    _headingOffsetDeg = offsetDeg;
+}
+
+void ImuSensor::setCorrectionTable(const HeadingCorrectionPoint *table, uint8_t count)
+{
+    _correctionTable = table;
+    _correctionCount = count;
+}
+
 bool ImuSensor::enableReports()
 {
     if (!_bno08x.enableReport(SH2_GEOMAGNETIC_ROTATION_VECTOR))
@@ -40,26 +81,28 @@ bool ImuSensor::enableReports()
 
 float ImuSensor::correctHeading(float raw)
 {
-    struct Point
-    {
-        float raw;
-        float corr;
-    };
+    static const HeadingCorrectionPoint defaultTable[] =
+        {
+            {0, 0},
+            {37, 45},
+            {83, 90},
+            {128, 135},
+            {163, 180},
+            {205, 225},
+            {275, 270},
+            {325, 315},
+            {360, 360}};
 
-    static const Point table[] =
-    {
-        {   0,   0 },
-        {  37,  45 },
-        {  83,  90 },
-        { 128, 135 },
-        { 163, 180 },
-        { 205, 225 },
-        { 275, 270 },
-        { 325, 315 },
-        { 360, 360 }
-    };
+    const HeadingCorrectionPoint *table = _correctionTable;
+    uint8_t count = _correctionCount;
 
-    for (int i = 0; i < 8; i++)
+    if (table == nullptr || count < 2)
+    {
+        table = defaultTable;
+        count = sizeof(defaultTable) / sizeof(defaultTable[0]);
+    }
+
+    for (uint8_t i = 0; i < count - 1; i++)
     {
         const float r0 = table[i].raw;
         const float r1 = table[i + 1].raw;
@@ -109,7 +152,7 @@ void ImuSensor::update(ImuHeading& out)
             );
 
             float headingDeg = yawRad * 180.0f / PI;
-            headingDeg += CompassConfig::HEADING_OFFSET_DEG;
+            headingDeg += _headingOffsetDeg;
             headingDeg = wrap360(headingDeg);
             headingDeg = correctHeading(headingDeg);
 

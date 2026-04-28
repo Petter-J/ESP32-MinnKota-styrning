@@ -94,9 +94,24 @@ void NavFusion::update(const GpsFix &gps, const ImuHeading &imu, SensorData &s)
     }
     else if (imu.valid)
     {
+        s.motorHeadingDeg = imu.headingDeg;
+        s.motorImuValid = true;
+
+        if (s.boatImuValid)
+        {
+            s.motorAngleDeg =
+                shortestAngleErrorDeg(
+                    s.motorHeadingDeg,
+                    s.boatHeadingDeg);
+        }
+        else
+        {
+            s.motorAngleDeg = 0.0f;
+        }
+
         s.headingDeg = imu.headingDeg;
         s.headingValid = true;
-        strcpy(s.headingSource, "IMU");
+        strcpy(s.headingSource, "MIMU");
     }
     else
     {
