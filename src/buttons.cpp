@@ -12,6 +12,8 @@ void ButtonManager::begin()
         _pressStartMs[i] = 0;
         _longReported[i] = false;
     }
+    _calComboStartMs = 0;
+    _calComboReported = false;
 }
 
 ButtonOutput ButtonManager::update(uint32_t rawMask, uint32_t nowMs)
@@ -60,6 +62,30 @@ ButtonOutput ButtonManager::update(uint32_t rawMask, uint32_t nowMs)
     if (isButtonPressed(_stableMask, ButtonId::STOP))
     {
         out.stopRequested = true;
+    }
+
+    const bool calCombo =
+        isButtonPressed(_stableMask, ButtonId::STEER_LEFT) &&
+        isButtonPressed(_stableMask, ButtonId::STEER_RIGHT);
+
+    if (calCombo)
+    {
+        if (_calComboStartMs == 0)
+        {
+            _calComboStartMs = nowMs;
+        }
+
+        if (!_calComboReported &&
+            (nowMs - _calComboStartMs) >= 3000)
+        {
+            _calComboReported = true;
+            out.requestCalibration = true;
+        }
+    }
+    else
+    {
+        _calComboStartMs = 0;
+        _calComboReported = false;
     }
 
     handleLongPress(ButtonId::MODE_MANUAL, nowMs, out.requestManual);

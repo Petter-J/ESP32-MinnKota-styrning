@@ -1,4 +1,5 @@
 #include "imu_sensor.h"
+#include "heading_calibration.h"
 
 bool ImuSensor::begin(int sdaPin, int sclPin, uint32_t freqHz, float headingOffsetDeg)
 {
@@ -81,43 +82,10 @@ bool ImuSensor::enableReports()
 
 float ImuSensor::correctHeading(float raw)
 {
-    static const HeadingCorrectionPoint defaultTable[] =
-        {
-            {0, 0},
-            {37, 45},
-            {83, 90},
-            {128, 135},
-            {163, 180},
-            {205, 225},
-            {275, 270},
-            {325, 315},
-            {360, 360}};
-
-    const HeadingCorrectionPoint *table = _correctionTable;
-    uint8_t count = _correctionCount;
-
-    if (table == nullptr || count < 2)
-    {
-        table = defaultTable;
-        count = sizeof(defaultTable) / sizeof(defaultTable[0]);
-    }
-
-    for (uint8_t i = 0; i < count - 1; i++)
-    {
-        const float r0 = table[i].raw;
-        const float r1 = table[i + 1].raw;
-
-        if (raw >= r0 && raw <= r1)
-        {
-            const float t = (raw - r0) / (r1 - r0);
-            const float c0 = table[i].corr;
-            const float c1 = table[i + 1].corr;
-
-            return wrap360(c0 + t * (c1 - c0));
-        }
-    }
-
-    return raw;
+    return HeadingCalibration::apply(
+        raw,
+        _correctionTable,
+        _correctionCount);
 }
 
 void ImuSensor::update(ImuHeading& out)

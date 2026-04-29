@@ -34,6 +34,7 @@ static constexpr uint16_t COLOR_MANUAL     = ST77XX_YELLOW;
 static constexpr uint16_t COLOR_AUTO       = ST77XX_CYAN;
 static constexpr uint16_t COLOR_ANCHOR     = ST77XX_GREEN;
 static constexpr uint16_t COLOR_STOP       = ST77XX_RED;
+static constexpr uint16_t COLOR_CAL        = ST77XX_MAGENTA;
 
 // =====================================================
 // Helpers
@@ -153,14 +154,20 @@ void display_lcd_begin()
     Serial.println("[LCD] init done");
 }
 
-void display_lcd_update(const StatusPacket& status, bool hasStatus, uint32_t buttonMask, bool linkAlive)
+void display_lcd_update(
+    const StatusPacket &status,
+    bool hasStatus,
+    uint32_t buttonMask,
+    bool linkAlive,
+    bool calActive,
+    bool calComplete,
+    uint16_t calBucketMask,
+    uint8_t calPhase)
 {
     static bool firstDraw = true;
-
     static bool lastHasStatus = false;
     static bool lastLinkAlive = false;
     static uint32_t lastButtonMask = 0;
-
     static uint8_t lastMode = 255;
     static uint8_t lastManualThrustPct = 255;
     static uint8_t lastTargetSpeedPct = 255;
@@ -168,6 +175,9 @@ void display_lcd_update(const StatusPacket& status, bool hasStatus, uint32_t but
     static uint8_t lastSatellites = 255;
     static uint8_t lastFlags = 255;
     static int8_t lastSteerState = 99;
+    static uint8_t lastCalFlags = 255;
+    static uint16_t lastCalBucketMask = 65535;
+    static uint8_t lastCalPhase = 255;
 
     const bool sameScreenData =
         !firstDraw &&
@@ -180,7 +190,10 @@ void display_lcd_update(const StatusPacket& status, bool hasStatus, uint32_t but
         (status.targetHeadingDeg10 == lastTargetHeadingDeg10) &&
         (status.satellites == lastSatellites) &&
         (status.flags == lastFlags) &&
-        (status.steerState == lastSteerState);
+        (status.steerState == lastSteerState) &&
+        (status.calFlags == lastCalFlags) &&
+        (status.calBucketMask == lastCalBucketMask) &&
+        (status.calPhase == lastCalPhase);
 
     if (sameScreenData)
     {
@@ -200,6 +213,9 @@ void display_lcd_update(const StatusPacket& status, bool hasStatus, uint32_t but
     lastSatellites = status.satellites;
     lastFlags = status.flags;
     lastSteerState = status.steerState;
+    lastCalFlags = status.calFlags;
+    lastCalBucketMask = status.calBucketMask;
+    lastCalPhase = status.calPhase;
 
     if (doFullDraw)
     {
@@ -226,7 +242,59 @@ void display_lcd_update(const StatusPacket& status, bool hasStatus, uint32_t but
         return;
     }
 
-    drawHeader(status.mode, linkAlive);
+    if (calActive || calComplete)
+    {
+        tft.fillRect(0, 0, 240, 40, COLOR_CAL);
+        drawCenteredText("CAL", 120, 10, 3, ST77XX_BLACK);
+    }
+    else
+    {
+        drawHeader(status.mode, linkAlive);
+    }
+
+    if (calActive || calComplete)
+    {
+        char calLine1[32];
+
+        if (calComplete)
+        {
+            snprintf(calLine1, sizeof(calLine1), "DONE");
+        }
+        else
+        {
+            uint8_t count = 0;
+
+            for (uint8_t i = 0; i < 16; i++)
+            {
+                if (calBucketMask & (1 << i))
+                {
+                    count++;
+                }
+            }
+
+            const char *phaseText = "--";
+
+            if (calPhase == 1)
+                phaseText = "CW";
+            else if (calPhase == 2)
+                phaseText = "CCW";
+
+            snprintf(calLine1, sizeof(calLine1), "%s %u/16", phaseText, count);
+        }
+
+        drawCenteredText(calLine1, 120, 82, 5, COLOR_CAL);
+
+        char spdLine[32];
+        snprintf(spdLine, sizeof(spdLine), "SPD %.1f", status.gpsSpeedCmps / 100.0f);
+        drawCenteredText(spdLine, 120, 155, 3, COLOR_TEXT);
+
+        char cogLine[32];
+        snprintf(cogLine, sizeof(cogLine), "COG %u", status.gpsCogDeg10 / 10);
+        drawCenteredText(cogLine, 120, 195, 3, COLOR_TEXT);
+
+        drawFooter(status, linkAlive);
+        return;
+    }
 
     // Main content
     if (status.mode == 0) // STOP

@@ -5,6 +5,7 @@
 #include "imu_sensor.h"
 #include "remote_protocol.h"
 #include "display.h"
+#include "remote_calibration.h"
 
 // ============================================================
 // BUTTON IDS
@@ -59,6 +60,8 @@ static ImuSensor gBoatImu;
 static ImuHeading gBoatHeading;
 static bool gBoatImuStarted = false;
 
+static RemoteCalibration gRemoteCalibration;
+
 // ============================================================
 // BUTTON READ
 // ============================================================
@@ -98,14 +101,63 @@ static uint32_t readButtons()
 // ============================================================
 void onSent(const uint8_t*, esp_now_send_status_t) {}
 
-void onRecv(const uint8_t*, const uint8_t* data, int len)
+void onRecv(const uint8_t *, const uint8_t *data, int len)
 {
-    if (!data || len != (int)sizeof(StatusPacket))
+    if (!data || len <= 0)
         return;
 
-    memcpy(&gStatus, data, sizeof(StatusPacket));
-    gHasStatus = true;
-    gLastStatusMs = millis();
+    // StatusPacket från Main
+    if (len == (int)sizeof(StatusPacket))
+    {
+        memcpy(&gStatus, data, sizeof(StatusPacket));
+        gHasStatus = true;
+        gLastStatusMs = millis();
+        return;
+    }
+
+    // Kalibreringspaket från Main
+    const uint8_t msgType = data[0];
+
+    if (msgType == static_cast<uint8_t>(RemoteMsgType::CalStartSweep) &&
+        len == (int)sizeof(CalStartSweepPacket))
+    {
+        CalStartSweepPacket packet;
+        memcpy(&packet, data, sizeof(packet));
+        gRemoteCalibration.startSweep(packet);
+        return;
+    }
+
+    if (msgType == static_cast<uint8_t>(RemoteMsgType::CalBucketSample) &&
+        len == (int)sizeof(CalBucketSamplePacket))
+    {
+        CalBucketSamplePacket packet;
+        memcpy(&packet, data, sizeof(packet));
+
+        if (gBoatHeading.valid)
+        {
+            gRemoteCalibration.addBucketSample(packet, gBoatHeading.headingDeg);
+        }
+
+        return;
+    }
+
+    if (msgType == static_cast<uint8_t>(RemoteMsgType::CalSaveBoatLutPoint) &&
+        len == (int)sizeof(CalSaveBoatLutPointPacket))
+    {
+        CalSaveBoatLutPointPacket packet;
+        memcpy(&packet, data, sizeof(packet));
+        gRemoteCalibration.saveBoatLutPoint(packet);
+        return;
+    }
+
+    if (msgType == static_cast<uint8_t>(RemoteMsgType::CalEndSweep) &&
+        len == (int)sizeof(CalEndSweepPacket))
+    {
+        CalEndSweepPacket packet;
+        memcpy(&packet, data, sizeof(packet));
+        gRemoteCalibration.endSweep(packet);
+        return;
+    }
 }
 
 // ============================================================
@@ -163,6 +215,8 @@ void setup()
     peer.encrypt = false;
 
     esp_now_add_peer(&peer);
+
+    gRemoteCalibration.begin();
 }
 
 // ============================================================
@@ -179,6 +233,16 @@ void loop()
     if (gBoatImuStarted)
     {
         gBoatImu.update(gBoatHeading);
+    }
+
+    if (gRemoteCalibration.hasPendingBucketResult())
+    {
+        CalBoatBucketResultPacket result =
+            gRemoteCalibration.takePendingBucketResult();
+
+        esp_now_send(RECEIVER_MAC,
+                     reinterpret_cast<const uint8_t *>(&result),
+                     sizeof(result));
     }
 
     static uint32_t lastBoatPrintMs = 0;
@@ -232,6 +296,16 @@ void loop()
     {
         lastDisplayMs = now;
 
-        display_update(gStatus, gHasStatus, buttonMask, linkAlive);
-    }
+        display_update(
+            gStatus,
+            gHasStatus,
+            buttonMask,
+            linkAlive,
+            (gStatus.calFlags & STATUS_CAL_FLAG_ACTIVE) != 0,
+            (gStatus.calFlags & STATUS_CAL_FLAG_COMPLETE) != 0,
+            gStatus.calBucketMask,
+            gStatus.calPhase);
+        }
+
+    
 }

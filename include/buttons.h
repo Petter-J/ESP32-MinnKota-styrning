@@ -46,7 +46,7 @@ struct ButtonOutput
     bool thrustDownHeld = false;
     bool steerLeftHeld  = false;
     bool steerRightHeld = false;
-
+    bool requestCalibration = false;
     bool anchorHeld = false;
 };
 
@@ -68,4 +68,7 @@ private:
 
     uint32_t _pressStartMs[static_cast<uint8_t>(ButtonId::COUNT)] = {};
     bool _longReported[static_cast<uint8_t>(ButtonId::COUNT)] = {};
+
+    uint32_t _calComboStartMs = 0;
+    bool _calComboReported = false;
 };

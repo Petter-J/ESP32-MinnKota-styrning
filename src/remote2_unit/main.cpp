@@ -185,7 +185,15 @@ void loop()
     const bool linkAlive = gHasStatus && ((now - gLastStatusMs) < 1000);
 
     // Uppdatera display
-    display_lcd_update(gStatus, gHasStatus, buttonMask, linkAlive);
+    display_lcd_update(
+        gStatus,
+        gHasStatus,
+        buttonMask,
+        linkAlive,
+        (gStatus.calFlags & STATUS_CAL_FLAG_ACTIVE) != 0,
+        (gStatus.calFlags & STATUS_CAL_FLAG_COMPLETE) != 0,
+        gStatus.calBucketMask,
+        gStatus.calPhase);
 
     // Print endast när knappmask ändras
     if (buttonMask != lastPrintMask)

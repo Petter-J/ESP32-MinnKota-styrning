@@ -3,6 +3,7 @@
 #include <WiFi.h>
 #include <esp_now.h>
 #include <cstring>
+#include "calibration_manager.h"
 
 // ------------------------------------------------------------
 // Static instance pointer for ESP-NOW callback
@@ -23,8 +24,25 @@ void onEspNowRecv(const uint8_t* mac, const uint8_t* data, int len)
     if (s_instance == nullptr)
         return;
 
-    if (mac == nullptr || data == nullptr || len != (int)sizeof(RemotePacket))
+    if (mac == nullptr || data == nullptr || len <= 0)
         return;
+
+    // --------------------------------------------------
+    // Calibration packet from Remote1
+    // --------------------------------------------------
+    if (memcmp(mac, s_remote1PeerMac, 6) == 0 &&
+        len == (int)sizeof(CalBoatBucketResultPacket))
+    {
+        CalBoatBucketResultPacket pkt;
+        memcpy(&pkt, data, sizeof(pkt));
+
+        if (pkt.msgType == static_cast<uint8_t>(RemoteMsgType::CalBoatBucketResult))
+        {
+            s_instance->_boatCalibrationResult = pkt;
+            s_instance->_hasBoatCalibrationResult = true;
+            return;
+        }
+    }
 
     RemotePacket pkt;
     memcpy(&pkt, data, sizeof(RemotePacket));
@@ -136,37 +154,66 @@ void RemoteEspNow::setRemote2Mask(uint32_t buttonMask, uint32_t rxTimeMs)
     _remote2LastRxTimeMs = rxTimeMs;
 }
 
-bool RemoteEspNow::sendStatusRemote1(const StatusPacket &status)
+bool RemoteEspNow::sendToTarget(
+    RemoteTarget target,
+    const uint8_t *data,
+    size_t len)
 {
     if (!_initialized)
         return false;
 
-    const esp_err_t result = esp_now_send(
-        s_remote1PeerMac,
+    if (data == nullptr || len == 0)
+        return false;
+
+    bool ok = false;
+
+    if (target == RemoteTarget::Remote1BoatBno ||
+        target == RemoteTarget::Both)
+    {
+        const esp_err_t r1 = esp_now_send(s_remote1PeerMac, data, len);
+        ok = ok || (r1 == ESP_OK);
+    }
+
+    if (target == RemoteTarget::Remote2Handheld ||
+        target == RemoteTarget::Both)
+    {
+        const esp_err_t r2 = esp_now_send(s_remote2PeerMac, data, len);
+        ok = ok || (r2 == ESP_OK);
+    }
+
+    return ok;
+}
+
+bool RemoteEspNow::sendStatusRemote1(const StatusPacket &status)
+{
+    return sendToTarget(
+        RemoteTarget::Remote1BoatBno,
         reinterpret_cast<const uint8_t *>(&status),
         sizeof(StatusPacket));
-
-    return result == ESP_OK;
 }
 
 bool RemoteEspNow::sendStatusRemote2(const StatusPacket &status)
 {
-    if (!_initialized)
-        return false;
-
-    const esp_err_t result = esp_now_send(
-        s_remote2PeerMac,
+    return sendToTarget(
+        RemoteTarget::Remote2Handheld,
         reinterpret_cast<const uint8_t *>(&status),
         sizeof(StatusPacket));
-
-    return result == ESP_OK;
 }
 
 bool RemoteEspNow::sendStatus(const StatusPacket &status)
 {
-    const bool ok1 = sendStatusRemote1(status);
-    const bool ok2 = sendStatusRemote2(status);
-    return ok1 || ok2;
+    return sendToTarget(
+        RemoteTarget::Both,
+        reinterpret_cast<const uint8_t *>(&status),
+        sizeof(StatusPacket));
+}
+
+bool RemoteEspNow::sendCalibrationPacket(const uint8_t *data, size_t len)
+{
+    return sendToTarget(
+        RemoteTarget::Remote1BoatBno,
+        data,
+        len);
 }
 
 bool RemoteEspNow::getBoatHeading(float &headingDeg, uint32_t nowMs) const
@@ -189,4 +236,15 @@ bool RemoteEspNow::hasBoatImu(uint32_t nowMs) const
 
     return _boatImuValid &&
            ((nowMs - _boatImuLastRxTimeMs) < TIMEOUT_MS);
+}
+
+bool RemoteEspNow::getBoatCalibrationResult(
+    CalBoatBucketResultPacket &outPacket)
+{
+    if (!_hasBoatCalibrationResult)
+        return false;
+
+    outPacket = _boatCalibrationResult;
+    _hasBoatCalibrationResult = false;
+    return true;
 }

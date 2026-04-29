@@ -10,6 +10,7 @@
 #include "input_logic.h"
 #include "navigation.h"
 #include "ota_update.h"
+#include "calibration_manager.h"
 
 // ============================================================
 // Globals
@@ -25,6 +26,8 @@ static RemoteEspNow gRemote;
 static ButtonManager gButtons;
 static InputLogic gInputLogic;
 static Navigation gNavigation;
+static CalibrationManager gCalibration;
+static uint32_t gCalibrationCommandId = 1;
 
 // ============================================================
 // Local button read
@@ -60,6 +63,86 @@ static uint32_t readLocalButtons()
 
     return mask;
 
+}
+
+static void startCalibrationClockwise()
+{
+    gCalibrationCommandId++;
+
+    gCalibration.startClockwise(gCalibrationCommandId);
+
+    CalStartSweepPacket pkt;
+    pkt.phase = static_cast<uint8_t>(RemoteCalPhase::Clockwise);
+    pkt.bucketCount = HEADING_CAL_BUCKET_COUNT;
+    pkt.bucketWindowDeg = HEADING_CAL_BUCKET_WINDOW_DEG;
+    pkt.minSamplesPerBucket = HEADING_CAL_MIN_SAMPLES_PER_BUCKET;
+    pkt.commandId = gCalibrationCommandId;
+
+    // Byt detta mot din befintliga send-funktion om du har en wrapper
+    gRemote.sendCalibrationPacket(
+        reinterpret_cast<const uint8_t *>(&pkt),
+        sizeof(pkt));
+
+    Serial.println("[CAL] Started clockwise sweep");
+}
+
+static void startCalibrationCounterClockwise()
+{
+    gCalibrationCommandId++;
+
+    gCalibration.startCounterClockwise(gCalibrationCommandId);
+
+    CalStartSweepPacket pkt;
+    pkt.phase = static_cast<uint8_t>(RemoteCalPhase::CounterClockwise);
+    pkt.bucketCount = HEADING_CAL_BUCKET_COUNT;
+    pkt.bucketWindowDeg = HEADING_CAL_BUCKET_WINDOW_DEG;
+    pkt.minSamplesPerBucket = HEADING_CAL_MIN_SAMPLES_PER_BUCKET;
+    pkt.commandId = gCalibrationCommandId;
+
+    gRemote.sendCalibrationPacket(
+        reinterpret_cast<const uint8_t *>(&pkt),
+        sizeof(pkt));
+
+    Serial.println("[CAL] Started counter-clockwise sweep");
+}
+
+static void sendBoatLutToRemote()
+{
+    const HeadingCalPoint *points = gCalibration.finalPoints();
+
+    for (uint8_t i = 0; i < HEADING_CAL_BUCKET_COUNT; i++)
+    {
+        const HeadingCalPoint &p = points[i];
+
+        CalSaveBoatLutPointPacket pkt;
+        pkt.lutIndex = i;
+        pkt.rawDeg = p.boatRawDeg;
+        pkt.corrDeg = p.gpsDeg;
+        pkt.valid = p.valid;
+        pkt.commandId = gCalibrationCommandId;
+
+        gRemote.sendCalibrationPacket(
+            reinterpret_cast<const uint8_t *>(&pkt),
+            sizeof(pkt));
+
+        delay(10);
+
+        Serial.printf("[CAL] Sent boat LUT %u raw=%.1f corr=%.1f valid=%d\n",
+                      i,
+                      pkt.rawDeg,
+                      pkt.corrDeg,
+                      pkt.valid ? 1 : 0);
+    }
+
+    CalEndSweepPacket endPkt;
+    endPkt.saveToFlash = false;
+    endPkt.commandId = gCalibrationCommandId;
+
+    gRemote.sendCalibrationPacket(
+        reinterpret_cast<const uint8_t *>(&endPkt),
+        sizeof(endPkt));
+
+    Serial.println("[CAL] Boat LUT sent to remote");
 }
 
 // ============================================================
@@ -131,6 +214,7 @@ for (int i = 0; i < 5; i++)
     gButtons.begin();
     gInputLogic.begin();
     gNavigation.begin();
+    gCalibration.begin();
     ota_begin();
 
     gSys.mode = SystemMode::STOP;
@@ -184,6 +268,47 @@ void loop()
     // 0. Update sensors first
     gNavigation.update(gSys.sensors);
 
+    // 0.5 Calibration sweep update
+    gCalibration.update(
+        gSys.sensors.courseOverGroundDeg,
+        gSys.sensors.gpsSpeedMps,
+        gSys.sensors.motorHeadingDeg);
+
+    if (gCalibration.hasPendingBucketSample())
+    {
+        CalBucketSamplePacket calPkt =
+            gCalibration.takePendingBucketSample();
+
+        gRemote.sendCalibrationPacket(
+            reinterpret_cast<const uint8_t *>(&calPkt),
+            sizeof(calPkt));
+    }
+
+    CalBoatBucketResultPacket boatPkt;
+    if (gRemote.getBoatCalibrationResult(boatPkt))
+    {
+        gCalibration.handleBoatBucketResult(boatPkt);
+    }
+
+    static bool cwDoneHandled = false;
+    static bool finalLutSent = false;
+
+    if (gCalibration.isClockwiseComplete() && !cwDoneHandled)
+    {
+        cwDoneHandled = true;
+
+        Serial.println("[CAL] CW complete. Start CCW sweep.");
+        startCalibrationCounterClockwise();
+    }
+
+    if (gCalibration.isComplete() && !finalLutSent)
+    {
+        finalLutSent = true;
+
+        Serial.println("[CAL] Calibration complete. Sending boat LUT.");
+        sendBoatLutToRemote();
+    }
+
     // 1. Read local buttons
     const uint32_t localMask = readLocalButtons();
 
@@ -205,8 +330,6 @@ void loop()
     // link/command heartbeat time
    // gSys.lastCommandTimeMs = gRemote.lastRxTimeMs();
 
-    
-
     // 3. Combine all inputs
     const uint32_t effectiveMask = localMask | remoteMask;
 
@@ -216,6 +339,8 @@ void loop()
                    localMask, remoteMask, effectiveMask);
     }
 
+    
+
     // 4. Store command
     gSys.lastCommand.buttonMask = effectiveMask;
     gSys.lastCommand.valid = true;
@@ -223,6 +348,33 @@ void loop()
 
     // 5. Interpret buttons
     const ButtonOutput btn = gButtons.update(effectiveMask, now);
+
+    if (btn.stopRequested && gCalibration.active())
+    {
+        Serial.println("[CAL] Cancelled by STOP");
+
+        gCalibration.stop();
+
+        CalEndSweepPacket endPkt;
+        endPkt.saveToFlash = false;
+        endPkt.commandId = gCalibrationCommandId;
+
+        gRemote.sendCalibrationPacket(
+            reinterpret_cast<const uint8_t *>(&endPkt),
+            sizeof(endPkt));
+
+        cwDoneHandled = false;
+        finalLutSent = false;
+    }
+
+    if (btn.requestCalibration && !gCalibration.active())
+    {
+        cwDoneHandled = false;
+        finalLutSent = false;
+
+        Serial.println("[CAL] ButtonManager start");
+        startCalibrationClockwise();
+    }
 
     // 6. Apply input policy
     gInputLogic.applyButtons(btn, now, gSys, gController);
@@ -245,6 +397,8 @@ void loop()
     pkt.mode = (uint8_t)gSys.mode;
     pkt.manualThrustPct = (uint8_t)roundf(gSys.manualThrustPct);
     pkt.targetSpeedPct = (uint8_t)roundf(gSys.targetSpeedPct);
+    pkt.gpsSpeedCmps = (uint16_t)roundf(gSys.sensors.gpsSpeedMps * 100.0f);
+    pkt.gpsCogDeg10 = (uint16_t)roundf(gSys.sensors.courseOverGroundDeg * 10.0f);
 
     if (gSys.sensors.boatImuValid)
     {
@@ -254,7 +408,7 @@ void loop()
     {
         pkt.headingDeg10 = (uint16_t)roundf(gSys.sensors.headingDeg * 10.0f);
     }
-    
+
     pkt.targetHeadingDeg10 = (uint16_t)roundf(gSys.targetHeadingDeg * 10.0f);
 
     pkt.satellites = (uint8_t)gSys.sensors.satellites;
@@ -281,6 +435,36 @@ void loop()
     }
 
     pkt.counter = (uint8_t)gStatusCounter++;
+
+    pkt.calFlags = 0;
+
+    if (gCalibration.active())
+    {
+        pkt.calFlags |= STATUS_CAL_FLAG_ACTIVE;
+    }
+
+    if (gCalibration.isComplete())
+    {
+        pkt.calFlags |= STATUS_CAL_FLAG_COMPLETE;
+    }
+
+    pkt.calBucketMask = gCalibration.mainBucketsValidMask();
+
+    if (gCalibration.active())
+    {
+        if (!gCalibration.isClockwiseComplete())
+        {
+            pkt.calPhase = static_cast<uint8_t>(RemoteCalPhase::Clockwise);
+        }
+        else
+        {
+            pkt.calPhase = static_cast<uint8_t>(RemoteCalPhase::CounterClockwise);
+        }
+    }
+    else
+    {
+        pkt.calPhase = static_cast<uint8_t>(RemoteCalPhase::None);
+    }
 
     // Skicka status med olika takt per remote (lätt att ändra senare)
     static uint32_t lastStatusR1Ms = 0;
