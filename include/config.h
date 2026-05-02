@@ -12,7 +12,7 @@ namespace ManualControlConfig
     static constexpr float THRUST_STEP_PCT = 5.0f;
     static constexpr uint32_t REPEAT_MS = 120;
 
-    static constexpr float STEER_JOG_PCT = 80.0f;
+    static constexpr float STEER_JOG_PCT = 100.0f; // max pwm
 }
 
 // ============================================================

@@ -47,7 +47,7 @@ namespace RemoteButtonPins
 // ============================================================
 // RECEIVER MAC (ändra vid behov)
 // ============================================================
-static uint8_t RECEIVER_MAC[6] = {0xF0, 0x9E, 0x9E, 0x74, 0x8F, 0x9C};
+static uint8_t RECEIVER_MAC[6] = {0xB4, 0x3A, 0x45, 0xB9, 0xE1, 0x6C};
 
 // ============================================================
 // STATUS
