@@ -119,12 +119,14 @@ static void drawFooter(const StatusPacket &status, bool linkAlive)
     tft.setTextColor(COLOR_DIM);
     tft.setCursor(10, 250);
     tft.print("SAT ");
-    tft.print(status.satellites);
+    tft.print(linkAlive ? status.satellites : 0);
+
+    const bool gpsOk = linkAlive && ((status.flags & STATUS_FLAG_GPS_VALID) != 0);
 
     drawCenteredText(
-        (status.flags & STATUS_FLAG_GPS_VALID) ? "GPS OK" : "NO GPS",
+        gpsOk ? "GPS OK" : "NO GPS",
         120, 250, 2,
-        (status.flags & STATUS_FLAG_GPS_VALID) ? COLOR_GOOD : COLOR_BAD);
+        gpsOk ? COLOR_GOOD : COLOR_BAD);
 
     tft.setCursor(180, 250);
     tft.setTextColor(linkAlive ? COLOR_GOOD : COLOR_BAD);

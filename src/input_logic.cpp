@@ -171,10 +171,10 @@ void InputLogic::setMode(
 }
 
 void InputLogic::handleStop(
-    const ButtonOutput& btn,
+    const ButtonOutput &btn,
     uint32_t nowMs,
-    SystemState& sys,
-    MainController& controller)
+    SystemState &sys,
+    MainController &controller)
 {
     if (!btn.stopRequested)
         return;
@@ -186,14 +186,14 @@ void InputLogic::handleStop(
 }
 
 void InputLogic::handleModeButtons(
-    const ButtonOutput& btn,
+    const ButtonOutput &btn,
     uint32_t nowMs,
-    SystemState& sys,
-    MainController& controller)
+    SystemState &sys,
+    MainController &controller)
 {
     const uint8_t modePressCount =
         (btn.requestManual ? 1 : 0) +
-        (btn.requestAuto   ? 1 : 0) +
+        (btn.requestAuto ? 1 : 0) +
         (btn.requestAnchor ? 1 : 0);
 
     if (modePressCount != 1)
@@ -206,6 +206,38 @@ void InputLogic::handleModeButtons(
         else
             setMode(SystemMode::MANUAL, nowMs, sys, controller);
 
+        return;
+    }
+
+    if (btn.requestAuto)
+    {
+        if (sys.mode == SystemMode::AUTO)
+        {
+            setMode(SystemMode::STOP, nowMs, sys, controller);
+            return;
+        }
+
+        if (!sys.sensors.gpsValid ||
+            !sys.sensors.speedValid ||
+            sys.sensors.gpsSpeedMps < AutoConfig::MIN_GPS_COURSE_SPEED_MPS)
+        {
+            DBG_PRINTLN("[AUTO] no valid GPS movement -> stay current mode");
+            return;
+        }
+
+        sys.targetHeadingDeg = sys.sensors.courseOverGroundDeg;
+
+        sys.targetSpeedPct = clampf(
+            (sys.sensors.gpsSpeedMps / AutoConfig::MAX_SPEED_MPS) * 100.0f,
+            Limits::THRUST_MIN_PCT,
+            Limits::THRUST_MAX_PCT);
+
+        DBG_PRINTF("[AUTO] entry hdg=%.1f speed=%.2f pct=%.1f\n",
+                   sys.targetHeadingDeg,
+                   sys.sensors.gpsSpeedMps,
+                   sys.targetSpeedPct);
+
+        setMode(SystemMode::AUTO, nowMs, sys, controller);
         return;
     }
 
@@ -242,9 +274,9 @@ void InputLogic::handleModeButtons(
 }
 
 void InputLogic::handleManualButtons(
-    const ButtonOutput& btn,
+    const ButtonOutput &btn,
     uint32_t nowMs,
-    SystemState& sys)
+    SystemState &sys)
 {
     if (sys.mode != SystemMode::MANUAL)
         return;
@@ -254,9 +286,9 @@ void InputLogic::handleManualButtons(
 
     _lastManualAdjustMs = nowMs;
 
-    const bool thrustUp   = btn.thrustUpHeld;
+    const bool thrustUp = btn.thrustUpHeld;
     const bool thrustDown = btn.thrustDownHeld;
-    const bool steerLeft  = btn.steerLeftHeld;
+    const bool steerLeft = btn.steerLeftHeld;
     const bool steerRight = btn.steerRightHeld;
 
     if (thrustUp && !thrustDown)
@@ -270,8 +302,7 @@ void InputLogic::handleManualButtons(
             sys.manualThrustPct = clampf(
                 sys.manualThrustPct + _cfg.manualThrustStepPct,
                 _cfg.manualThrustMinPct,
-                _cfg.manualThrustMaxPct
-            );
+                _cfg.manualThrustMaxPct);
         }
 
         DBG_PRINTF("[MAN] thrust -> %.1f\n", sys.manualThrustPct);
@@ -283,30 +314,29 @@ void InputLogic::handleManualButtons(
             sys.manualThrustPct = clampf(
                 sys.manualThrustPct - _cfg.manualThrustStepPct,
                 _cfg.manualThrustMinPct,
-                _cfg.manualThrustMaxPct
-            );
+                _cfg.manualThrustMaxPct);
 
             DBG_PRINTF("[MAN] thrust -> %.1f\n", sys.manualThrustPct);
         }
     }
 
     if (steerLeft && !steerRight)
-{
-    sys.manualSteerPct = -ManualControlConfig::STEER_JOG_PCT;
-}
-else if (steerRight && !steerLeft)
-{
-    sys.manualSteerPct = ManualControlConfig::STEER_JOG_PCT;
-}
-else
-{
-    sys.manualSteerPct = 0.0f;
-}
+    {
+        sys.manualSteerPct = -ManualControlConfig::STEER_JOG_PCT;
+    }
+    else if (steerRight && !steerLeft)
+    {
+        sys.manualSteerPct = ManualControlConfig::STEER_JOG_PCT;
+    }
+    else
+    {
+        sys.manualSteerPct = 0.0f;
+    }
 }
 void InputLogic::handleAutoButtons(
-    const ButtonOutput& btn,
+    const ButtonOutput &btn,
     uint32_t nowMs,
-    SystemState& sys)
+    SystemState &sys)
 {
     if (sys.mode != SystemMode::AUTO)
         return;
@@ -322,8 +352,7 @@ void InputLogic::handleAutoButtons(
         sys.targetSpeedPct = clampf(
             sys.targetSpeedPct + AutoControlConfig::SPEED_STEP_PCT,
             Limits::THRUST_MIN_PCT,
-            Limits::THRUST_MAX_PCT
-        );
+            Limits::THRUST_MAX_PCT);
 
         DBG_PRINTF("[AUTO] speed -> %.1f\n", sys.targetSpeedPct);
     }
@@ -332,8 +361,7 @@ void InputLogic::handleAutoButtons(
         sys.targetSpeedPct = clampf(
             sys.targetSpeedPct - AutoControlConfig::SPEED_STEP_PCT,
             Limits::THRUST_MIN_PCT,
-            Limits::THRUST_MAX_PCT
-        );
+            Limits::THRUST_MAX_PCT);
 
         DBG_PRINTF("[AUTO] speed -> %.1f\n", sys.targetSpeedPct);
     }
@@ -342,16 +370,14 @@ void InputLogic::handleAutoButtons(
     if (btn.steerLeftHeld && !btn.steerRightHeld)
     {
         sys.targetHeadingDeg = wrap360(
-            sys.targetHeadingDeg - AutoControlConfig::HEADING_STEP_DEG
-        );
+            sys.targetHeadingDeg - AutoControlConfig::HEADING_STEP_DEG);
 
         DBG_PRINTF("[AUTO] heading -> %.1f\n", sys.targetHeadingDeg);
     }
     else if (btn.steerRightHeld && !btn.steerLeftHeld)
     {
         sys.targetHeadingDeg = wrap360(
-            sys.targetHeadingDeg + AutoControlConfig::HEADING_STEP_DEG
-        );
+            sys.targetHeadingDeg + AutoControlConfig::HEADING_STEP_DEG);
 
         DBG_PRINTF("[AUTO] heading -> %.1f\n", sys.targetHeadingDeg);
     }

@@ -14,6 +14,9 @@ void ButtonManager::begin()
     }
     _calComboStartMs = 0;
     _calComboReported = false;
+
+    _otaComboStartMs = 0;
+    _otaComboReported = false;
 }
 
 ButtonOutput ButtonManager::update(uint32_t rawMask, uint32_t nowMs)
@@ -86,6 +89,30 @@ ButtonOutput ButtonManager::update(uint32_t rawMask, uint32_t nowMs)
     {
         _calComboStartMs = 0;
         _calComboReported = false;
+    }
+
+    const bool otaCombo =
+        isButtonPressed(_stableMask, ButtonId::THRUST_UP) &&
+        isButtonPressed(_stableMask, ButtonId::THRUST_DOWN);
+
+    if (otaCombo)
+    {
+        if (_otaComboStartMs == 0)
+        {
+            _otaComboStartMs = nowMs;
+        }
+
+        if (!_otaComboReported &&
+            (nowMs - _otaComboStartMs) >= 3000)
+        {
+            _otaComboReported = true;
+            out.requestOta = true;
+        }
+    }
+    else
+    {
+        _otaComboStartMs = 0;
+        _otaComboReported = false;
     }
 
     handleLongPress(ButtonId::MODE_MANUAL, nowMs, out.requestManual);

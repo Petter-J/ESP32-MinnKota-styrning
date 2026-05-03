@@ -29,7 +29,7 @@ void ota_begin()
     otaServer.on("/update", HTTP_POST, []()
                  {
         otaServer.send(200, "text/plain", Update.hasError() ? "Update failed" : "Update OK. Rebooting...");
-        delay(1000);
+        delay(1500);
         ESP.restart(); }, []()
                  {
         HTTPUpload& upload = otaServer.upload();

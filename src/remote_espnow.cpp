@@ -8,18 +8,18 @@
 // ------------------------------------------------------------
 // Static instance pointer for ESP-NOW callback
 // ------------------------------------------------------------
-static RemoteEspNow* s_instance = nullptr;
+static RemoteEspNow *s_instance = nullptr;
 
 // ------------------------------------------------------------
 // MAC addresses of remotes
 // ------------------------------------------------------------
-static uint8_t s_remote1PeerMac[6] = {0xF0, 0x9E, 0x9E, 0x74, 0x8F, 0x9C};   // gamla remote
-static uint8_t s_remote2PeerMac[6] = { 0x20, 0x6E, 0xF1, 0x9B, 0xB3, 0x08 }; // remote2 S3
+static uint8_t s_remote1PeerMac[6] = {0xF0, 0x9E, 0x9E, 0x74, 0x8F, 0x9C}; // gamla remote
+static uint8_t s_remote2PeerMac[6] = {0x20, 0x6E, 0xF1, 0x9B, 0xB3, 0x08}; // remote2 S3
 
 // ------------------------------------------------------------
 // ESP-NOW receive callback
 // ------------------------------------------------------------
-void onEspNowRecv(const uint8_t* mac, const uint8_t* data, int len)
+void onEspNowRecv(const uint8_t *mac, const uint8_t *data, int len)
 {
     if (s_instance == nullptr)
         return;
@@ -42,6 +42,11 @@ void onEspNowRecv(const uint8_t* mac, const uint8_t* data, int len)
             s_instance->_hasBoatCalibrationResult = true;
             return;
         }
+    }
+
+    if (len != (int)sizeof(RemotePacket))
+    {
+        return;
     }
 
     RemotePacket pkt;

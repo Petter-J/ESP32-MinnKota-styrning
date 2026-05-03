@@ -1,8 +1,6 @@
 #pragma once
 #include <Arduino.h>
 
-
-
 // ============================================================
 // MANUAL CONTROL
 // ============================================================
@@ -40,29 +38,28 @@ namespace AnchorControlConfig
 namespace ButtonPins
 {
     // ESP32-S3 valid GPIOs (internal pull-ups, active LOW to GND)
-    static constexpr int STOP         = 8;
-    static constexpr int MODE_MANUAL  = 13;
-    static constexpr int MODE_AUTO    = 12;
-    static constexpr int MODE_ANCHOR  = 11;
+    static constexpr int STOP = 8;
+    static constexpr int MODE_MANUAL = 13;
+    static constexpr int MODE_AUTO = 12;
+    static constexpr int MODE_ANCHOR = 11;
 
-    static constexpr int THRUST_UP    = 10;
-    static constexpr int THRUST_DOWN  = 9;
+    static constexpr int THRUST_UP = 10;
+    static constexpr int THRUST_DOWN = 9;
 
-    static constexpr int STEER_LEFT   = 6;
-    static constexpr int STEER_RIGHT  = 5;
+    static constexpr int STEER_LEFT = 6;
+    static constexpr int STEER_RIGHT = 5;
 }
-
 
 // ============================================================
 // PIN CONFIG
 // ============================================================
 namespace PinConfig
 {
-    static constexpr int THRUST_PWM = 15;   
-    static constexpr int THRUST_EN  = 16;
+    static constexpr int THRUST_PWM = 15;
+    static constexpr int THRUST_EN = 16;
 
-    static constexpr int STEER_DIR  = 17;
-    static constexpr int STEER_PWM  = 18;
+    static constexpr int STEER_DIR = 17;
+    static constexpr int STEER_PWM = 18;
 
 }
 
@@ -72,8 +69,8 @@ namespace PinConfig
 namespace GpsConfig
 {
     // UART för GPS
-    static constexpr int RX_PIN = 39;
-    static constexpr int TX_PIN = 38;
+    static constexpr int RX_PIN = 38;
+    static constexpr int TX_PIN = 39;
     static constexpr uint32_t BAUD = 115200;
 }
 

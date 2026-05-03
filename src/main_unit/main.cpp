@@ -215,7 +215,7 @@ for (int i = 0; i < 5; i++)
     gInputLogic.begin();
     gNavigation.begin();
     gCalibration.begin();
-    ota_begin();
+    
 
     gSys.mode = SystemMode::STOP;
     gSys.motorsEnabled = true;
@@ -327,8 +327,6 @@ void loop()
         gSys.lastCommandTimeMs = now;
     }
 
-    // link/command heartbeat time
-   // gSys.lastCommandTimeMs = gRemote.lastRxTimeMs();
 
     // 3. Combine all inputs
     const uint32_t effectiveMask = localMask | remoteMask;
@@ -348,6 +346,14 @@ void loop()
 
     // 5. Interpret buttons
     const ButtonOutput btn = gButtons.update(effectiveMask, now);
+
+   
+    // 6. Apply input policy
+    gInputLogic.applyButtons(btn, now, gSys, gController);
+
+    // 7. Apply safety
+    gInputLogic.applySafety(now, gSys, gController);
+
 
     if (btn.stopRequested && gCalibration.active())
     {
@@ -376,11 +382,32 @@ void loop()
         startCalibrationClockwise();
     }
 
-    // 6. Apply input policy
-    gInputLogic.applyButtons(btn, now, gSys, gController);
+    static uint32_t otaStopHoldStartMs = 0;
+    static bool otaStopTriggered = false;
 
-    // 7. Apply safety
-    gInputLogic.applySafety(now, gSys, gController);
+    const bool localStopHeld =
+        (localMask & buttonBit(ButtonId::STOP)) != 0;
+
+    if (localStopHeld)
+    {
+        if (otaStopHoldStartMs == 0)
+        {
+            otaStopHoldStartMs = now;
+        }
+
+        if (!otaStopTriggered && (now - otaStopHoldStartMs) >= 5000)
+        {
+            otaStopTriggered = true;
+
+            Serial.println("[OTA] Local STOP long-hold trigger");
+            ota_begin();
+        }
+    }
+    else
+    {
+        otaStopHoldStartMs = 0;
+        otaStopTriggered = false;
+    }
 
     // 8. Control update
     if (now - lastControlMs >= TimingConfig::CONTROL_INTERVAL_MS)

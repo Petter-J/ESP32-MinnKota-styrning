@@ -30,7 +30,7 @@ inline bool isButtonPressed(uint32_t mask, ButtonId id)
 
 namespace ButtonTiming
 {
-    static constexpr uint32_t DEBOUNCE_MS   = 30;
+    static constexpr uint32_t DEBOUNCE_MS = 30;
     static constexpr uint32_t LONG_PRESS_MS = 1000;
 }
 
@@ -39,15 +39,16 @@ struct ButtonOutput
     bool stopRequested = false;
 
     bool requestManual = false;
-    bool requestAuto   = false;
+    bool requestAuto = false;
     bool requestAnchor = false;
 
-    bool thrustUpHeld   = false;
+    bool thrustUpHeld = false;
     bool thrustDownHeld = false;
-    bool steerLeftHeld  = false;
+    bool steerLeftHeld = false;
     bool steerRightHeld = false;
     bool requestCalibration = false;
     bool anchorHeld = false;
+    bool requestOta = false;
 };
 
 class ButtonManager
@@ -58,7 +59,7 @@ public:
     uint32_t stableMask() const { return _stableMask; }
 
 private:
-    void handleLongPress(ButtonId id, uint32_t nowMs, bool& triggerOut);
+    void handleLongPress(ButtonId id, uint32_t nowMs, bool &triggerOut);
 
 private:
     uint32_t _rawMask = 0;
@@ -71,4 +72,7 @@ private:
 
     uint32_t _calComboStartMs = 0;
     bool _calComboReported = false;
+
+    uint32_t _otaComboStartMs = 0;
+    bool _otaComboReported = false;
 };
