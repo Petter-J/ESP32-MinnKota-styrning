@@ -4,7 +4,6 @@
 #include "types.h"
 #include "motors.h"
 #include "controller.h"
-#include "simulator.h"
 #include "remote_espnow.h"
 #include "buttons.h"
 #include "input_logic.h"
@@ -21,7 +20,6 @@ static bool useSimulator = false; // sätt false när GPS/kompass är inkopplat
 static SystemState gSys;
 static MotorManager gMotors;
 static MainController gController;
-static BoatSimulator gSimulator;
 static RemoteEspNow gRemote;
 static ButtonManager gButtons;
 static InputLogic gInputLogic;
@@ -209,7 +207,6 @@ for (int i = 0; i < 5; i++)
 
     gMotors.begin();
     gController.begin();
-    gSimulator.begin();
     gRemote.begin();
     gButtons.begin();
     gInputLogic.begin();
@@ -219,7 +216,6 @@ for (int i = 0; i < 5; i++)
 
     gSys.mode = SystemMode::STOP;
     gSys.motorsEnabled = true;
-    gSys.simulatorEnabled = false;
     gSys.targetHeadingDeg = 0.0f;
     gSys.targetSpeedPct = 0.0f;
     gSys.manualThrustPct = 0.0f;
@@ -318,7 +314,7 @@ void loop()
     const uint32_t lastRx = gRemote.lastRxTimeMs();
 
     const uint32_t rxAge =
-        (lastRx > 0 && now >= lastRx)
+        (lastRx > 0)
             ? (now - lastRx)
             : 999999;
 
@@ -439,6 +435,7 @@ void loop()
     pkt.targetHeadingDeg10 = (uint16_t)roundf(gSys.targetHeadingDeg * 10.0f);
 
     pkt.satellites = (uint8_t)gSys.sensors.satellites;
+    pkt.satellitesInView = (uint8_t)gSys.sensors.satellitesInView;
 
     // 🔥 STEER baserat på faktisk motorstyrning
 
@@ -461,8 +458,9 @@ void loop()
         pkt.flags |= STATUS_FLAG_GPS_VALID;
     }
 
-    pkt.counter = (uint8_t)gStatusCounter++;
-
+    //pkt.counter = (uint8_t)gStatusCounter++;
+    pkt.counter = (uint8_t)(remoteMask & 0xFF);
+    
     pkt.calFlags = 0;
 
     if (gCalibration.active())

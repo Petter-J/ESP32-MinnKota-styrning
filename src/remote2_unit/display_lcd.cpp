@@ -108,9 +108,8 @@ static void drawHeader(uint8_t mode, bool linkAlive)
     drawCenteredText(modeText(mode), 120, 10, 3, ST77XX_BLACK);
 }
 
-static void drawFooter(const StatusPacket &status, bool linkAlive)
+static void drawFooter(const StatusPacket &status, bool linkAlive, uint32_t buttonMask)
 {
-    // 🔥 rensa footer innan vi ritar nytt
     tft.fillRect(0, 240, 240, 40, COLOR_BG);
 
     tft.drawFastHLine(0, 240, 240, COLOR_DIM);
@@ -118,19 +117,32 @@ static void drawFooter(const StatusPacket &status, bool linkAlive)
     tft.setTextSize(2);
     tft.setTextColor(COLOR_DIM);
     tft.setCursor(10, 250);
-    tft.print("SAT ");
-    tft.print(linkAlive ? status.satellites : 0);
+    tft.print("S ");
+    tft.print(status.satellites);
+    tft.print("/");
+    tft.print(status.satellitesInView);
 
     const bool gpsOk = linkAlive && ((status.flags & STATUS_FLAG_GPS_VALID) != 0);
 
-    drawCenteredText(
-        gpsOk ? "GPS OK" : "NO GPS",
-        120, 250, 2,
-        gpsOk ? COLOR_GOOD : COLOR_BAD);
+    drawCenteredText("GPS", 120, 250, 2, gpsOk ? COLOR_GOOD : COLOR_BAD);
 
     tft.setCursor(180, 250);
     tft.setTextColor(linkAlive ? COLOR_GOOD : COLOR_BAD);
     tft.print(linkAlive ? "LINK" : "LOST");
+
+    char btnDbg[24];
+    snprintf(btnDbg, sizeof(btnDbg), "B %08lX", (unsigned long)buttonMask);
+
+    tft.setTextSize(1);
+    tft.setTextColor(COLOR_WARN);
+    tft.setCursor(100, 270);
+    tft.print(btnDbg);
+
+    tft.setTextSize(1);
+    tft.setTextColor(COLOR_ACCENT);
+    tft.setCursor(30, 270);
+    tft.print("R ");
+    tft.print(status.counter);
 }
 // =====================================================
 // Public API
@@ -141,7 +153,7 @@ void display_lcd_begin()
 
     ledcSetup(0, 5000, 8);        // channel 0, 5kHz, 8-bit
     ledcAttachPin(LCD_BL, 0);
-    ledcWrite(0, 120);            // 0–255 (120 ≈ 50%)
+    ledcWrite(0, 60);            // 0–255 (120 ≈ 50%)
 
     SPI.begin(LCD_SCLK, -1, LCD_MOSI, LCD_CS);
 
@@ -294,7 +306,7 @@ void display_lcd_update(
         snprintf(cogLine, sizeof(cogLine), "COG %u", status.gpsCogDeg10 / 10);
         drawCenteredText(cogLine, 120, 195, 3, COLOR_TEXT);
 
-        drawFooter(status, linkAlive);
+        drawFooter(status, linkAlive, buttonMask);
         return;
     }
 
@@ -337,5 +349,5 @@ void display_lcd_update(
         drawCenteredText("UNKNOWN", 120, 90, 4, COLOR_WARN);
     }
 
-    drawFooter(status, linkAlive);
+    drawFooter(status, linkAlive, buttonMask);
 }

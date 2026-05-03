@@ -91,6 +91,7 @@ void RemoteEspNow::begin()
 
     WiFi.mode(WIFI_STA);
     WiFi.disconnect();
+    WiFi.setSleep(false);
 
     if (esp_now_init() != ESP_OK)
     {
@@ -126,7 +127,7 @@ uint32_t RemoteEspNow::getCombinedMask(uint32_t nowMs) const
     if (!_initialized)
         return 0;
 
-    static constexpr uint32_t TIMEOUT_MS = 500;
+    static constexpr uint32_t TIMEOUT_MS = 1500;
 
     const uint32_t remote1Mask =
         ((nowMs - _remote1LastRxTimeMs) < TIMEOUT_MS) ? _remote1Mask : 0;
@@ -237,7 +238,7 @@ bool RemoteEspNow::getBoatHeading(float &headingDeg, uint32_t nowMs) const
 
 bool RemoteEspNow::hasBoatImu(uint32_t nowMs) const
 {
-    static constexpr uint32_t TIMEOUT_MS = 500;
+    static constexpr uint32_t TIMEOUT_MS = 1500;
 
     return _boatImuValid &&
            ((nowMs - _boatImuLastRxTimeMs) < TIMEOUT_MS);

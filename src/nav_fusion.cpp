@@ -22,6 +22,7 @@ void NavFusion::update(const GpsFix &gps, const ImuHeading &imu, SensorData &s)
     }
 
     s.satellites = gps.satellites;
+    s.satellitesInView = gps.satellitesInView;
 
     if (gps.speedValid)
     {

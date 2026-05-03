@@ -3,7 +3,9 @@
 bool GpsSensor::begin()
 {
     _serial.begin(GpsConfig::BAUD, SERIAL_8N1, GpsConfig::RX_PIN, GpsConfig::TX_PIN);
-    Serial.println("[GPS] UART started");
+
+    _gsvSatsInView.begin(_gps, "GPGSV", 3);
+
     return true;
 }
 
@@ -15,8 +17,12 @@ void GpsSensor::update(GpsFix &out)
         _gps.encode(c);
     }
 
-    out.locationValid = _gps.location.isValid();
-    out.speedValid = _gps.speed.isValid();
+    out.locationValid =
+        _gps.location.isValid() &&
+        _gps.location.age() < 2000;
+    out.speedValid =
+        _gps.speed.isValid() &&
+        _gps.speed.age() < 2000;
     out.courseValid = false;
 
     if (out.locationValid)
@@ -35,6 +41,7 @@ void GpsSensor::update(GpsFix &out)
     }
 
     if (_gps.course.isValid() &&
+        _gps.course.age() < 2000 &&
         out.speedValid &&
         out.speedMps >= AutoConfig::MIN_GPS_COURSE_SPEED_MPS)
     {
@@ -57,12 +64,21 @@ void GpsSensor::update(GpsFix &out)
         out.courseValid = false;
     }
 
-    if (_gps.satellites.isValid())
+    if (_gps.satellites.isValid() && _gps.satellites.age() < 2000)
     {
         out.satellites = _gps.satellites.value();
     }
     else
     {
         out.satellites = 0;
+    }
+
+    if (_gsvSatsInView.isValid())
+    {
+        out.satellitesInView = (uint8_t)atoi(_gsvSatsInView.value());
+    }
+    else
+    {
+        out.satellitesInView = 0;
     }
 }

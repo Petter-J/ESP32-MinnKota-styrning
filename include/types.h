@@ -78,6 +78,7 @@ struct SensorData
         float courseOverGroundDeg = 0.0f;
 
         int satellites = 0;
+        int satellitesInView = 0;
 
         bool headingValid = true;
         bool speedValid = true;
@@ -107,7 +108,6 @@ struct SystemState
     float manualSteerPct = 0.0f;
 
     bool motorsEnabled = true;
-    bool simulatorEnabled = true;
 
     uint32_t lastCommandTimeMs = 0;
     uint32_t sensorFailStartMs = 0;

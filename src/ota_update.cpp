@@ -6,6 +6,7 @@
 #include <Update.h>
 
 static WebServer otaServer(80);
+static bool gOtaActive = false;
 
 static const char *OTA_SSID = "BoatControl-OTA";
 static const char *OTA_PASS = "12345678";
@@ -56,10 +57,16 @@ void ota_begin()
         } });
 
     otaServer.begin();
+    gOtaActive = true;
     Serial.println("[OTA] server started");
 }
 
 void ota_handle()
 {
+    if (!gOtaActive)
+    {
+        return;
+    }
+
     otaServer.handleClient();
 }

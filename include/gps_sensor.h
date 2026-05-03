@@ -14,6 +14,7 @@ struct GpsFix
     float speedMps = 0.0f;
     float courseDeg = 0.0f;
     uint8_t satellites = 0;
+    uint8_t satellitesInView = 0;
 };
 
 class GpsSensor
@@ -25,4 +26,5 @@ public:
 private:
     HardwareSerial _serial{1};
     TinyGPSPlus _gps;
+    TinyGPSCustom _gsvSatsInView;
 };

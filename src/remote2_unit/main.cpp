@@ -116,6 +116,7 @@ void setup()
 
     WiFi.mode(WIFI_STA);
     WiFi.disconnect();
+    WiFi.setSleep(false);
 
     Serial.println();
     Serial.println("REMOTE2 START");
@@ -173,7 +174,7 @@ void loop()
         lastSendMs = now;
         lastSentMask = buttonMask;
 
-        RemotePacket pkt;
+        RemotePacket pkt = {};
         pkt.buttonMask = buttonMask;
 
         esp_now_send(RECEIVER_MAC,

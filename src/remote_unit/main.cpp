@@ -168,8 +168,10 @@ void setup()
     Serial.begin(115200);
     delay(1500);
 
-    //  Visa MAC-adress (viktigt för pairing)
+    // Visa MAC-adress (viktigt för pairing)
     WiFi.mode(WIFI_STA);
+    WiFi.setSleep(false);
+
     Serial.print("REMOTE MAC: ");
     Serial.println(WiFi.macAddress());
 
@@ -265,7 +267,7 @@ void loop()
         lastSendMs = now;
         lastSentMask = buttonMask;
 
-        RemotePacket pkt;
+        RemotePacket pkt = {};
         pkt.buttonMask = buttonMask;
 
         if (gBoatHeading.valid)
