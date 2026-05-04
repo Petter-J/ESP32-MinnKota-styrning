@@ -127,7 +127,7 @@ uint32_t RemoteEspNow::getCombinedMask(uint32_t nowMs) const
     if (!_initialized)
         return 0;
 
-    static constexpr uint32_t TIMEOUT_MS = 1500;
+    static constexpr uint32_t TIMEOUT_MS = 1000;
 
     const uint32_t remote1Mask =
         ((nowMs - _remote1LastRxTimeMs) < TIMEOUT_MS) ? _remote1Mask : 0;
@@ -224,7 +224,7 @@ bool RemoteEspNow::sendCalibrationPacket(const uint8_t *data, size_t len)
 
 bool RemoteEspNow::getBoatHeading(float &headingDeg, uint32_t nowMs) const
 {
-    static constexpr uint32_t TIMEOUT_MS = 500;
+    static constexpr uint32_t TIMEOUT_MS = 1500;
 
     if (!_boatImuValid)
         return false;
@@ -238,7 +238,7 @@ bool RemoteEspNow::getBoatHeading(float &headingDeg, uint32_t nowMs) const
 
 bool RemoteEspNow::hasBoatImu(uint32_t nowMs) const
 {
-    static constexpr uint32_t TIMEOUT_MS = 1500;
+    static constexpr uint32_t TIMEOUT_MS = 2000;
 
     return _boatImuValid &&
            ((nowMs - _boatImuLastRxTimeMs) < TIMEOUT_MS);

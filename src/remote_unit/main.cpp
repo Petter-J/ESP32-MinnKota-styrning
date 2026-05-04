@@ -192,6 +192,8 @@ void setup()
 
     gBoatImuStarted = gBoatImu.begin(3, 4, 100000, 0.0f);
 
+    
+
     if (gBoatImuStarted)
     {
         Serial.println("[REMOTE] Boat IMU started");
@@ -226,7 +228,8 @@ void setup()
 // ============================================================
 void loop()
 {
-    static uint32_t lastSendMs = 0;
+    static uint32_t lastButtonSendMs = 0;
+    static uint32_t lastHeadingSendMs = 0;
     static uint32_t lastSentMask = 0;
 
     const uint32_t now = millis();
@@ -257,44 +260,49 @@ void loop()
                       gBoatHeading.accuracy);
     }
 
-    // Skicka knappar
-    
+    // Skicka knappar + boat heading
     const bool changed = (buttonMask != lastSentMask);
-    const bool heartbeat = (now - lastSendMs >= 50);
+    const bool buttonHeartbeat = (now - lastButtonSendMs >= 50);
+    const bool headingHeartbeat = (now - lastHeadingSendMs >= 200);
 
-    if (changed || heartbeat)
+    if (changed || buttonHeartbeat || headingHeartbeat)
     {
-        lastSendMs = now;
+        lastButtonSendMs = now;
         lastSentMask = buttonMask;
 
         RemotePacket pkt = {};
         pkt.buttonMask = buttonMask;
 
-        if (gBoatHeading.valid)
-        {
-            pkt.boatHeadingDeg10 =
-                (uint16_t)roundf(gBoatHeading.headingDeg * 10.0f);
+        pkt.boatHeadingDeg10 = 0;
+        pkt.boatFlags = 0;
 
-            pkt.boatFlags |= REMOTE_FLAG_BOAT_IMU_VALID;
-        }
-        else
+        if (headingHeartbeat)
         {
-            pkt.boatHeadingDeg10 = 0;
-            pkt.boatFlags = 0;
+            lastHeadingSendMs = now;
+
+            if (gBoatHeading.valid &&
+                isfinite(gBoatHeading.headingDeg) &&
+                gBoatHeading.headingDeg >= 0.0f &&
+                gBoatHeading.headingDeg < 360.0f)
+            {
+                pkt.boatHeadingDeg10 =
+                    (uint16_t)roundf(gBoatHeading.headingDeg * 10.0f);
+
+                pkt.boatFlags = REMOTE_FLAG_BOAT_IMU_VALID;
+            }
         }
 
         esp_now_send(RECEIVER_MAC,
                      reinterpret_cast<const uint8_t *>(&pkt),
                      sizeof(pkt));
     }
-
     // Link status
     const bool linkAlive = gHasStatus && ((now - gLastStatusMs) < 1000);
 
     // Uppdatera display
     static uint32_t lastDisplayMs = 0;
 
-    if (now - lastDisplayMs >= 200)
+    if (now - lastDisplayMs >= 100)
     {
         lastDisplayMs = now;
 

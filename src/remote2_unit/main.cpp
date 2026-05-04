@@ -185,25 +185,21 @@ void loop()
     // Link status
     const bool linkAlive = gHasStatus && ((now - gLastStatusMs) < 1000);
 
-    // Uppdatera display
-    display_lcd_update(
-        gStatus,
-        gHasStatus,
-        buttonMask,
-        linkAlive,
-        (gStatus.calFlags & STATUS_CAL_FLAG_ACTIVE) != 0,
-        (gStatus.calFlags & STATUS_CAL_FLAG_COMPLETE) != 0,
-        gStatus.calBucketMask,
-        gStatus.calPhase);
+    // Uppdatera display max 10 Hz
+    static uint32_t lastDisplayMs = 0;
 
-    // Print endast när knappmask ändras
-    if (buttonMask != lastPrintMask)
+    if (now - lastDisplayMs >= 100)
     {
-        lastPrintMask = buttonMask;
+        lastDisplayMs = now;
 
-        Serial.print("Mask: 0x");
-        Serial.print(buttonMask, HEX);
-        Serial.print("  BIN: ");
-        Serial.println(buttonMask, BIN);
+        display_lcd_update(
+            gStatus,
+            gHasStatus,
+            buttonMask,
+            linkAlive,
+            (gStatus.calFlags & STATUS_CAL_FLAG_ACTIVE) != 0,
+            (gStatus.calFlags & STATUS_CAL_FLAG_COMPLETE) != 0,
+            gStatus.calBucketMask,
+            gStatus.calPhase);
     }
 }

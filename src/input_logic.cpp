@@ -330,7 +330,17 @@ void InputLogic::handleManualButtons(
     }
     else
     {
-        sys.manualSteerPct = 0.0f;
+        static uint32_t lastSteerInputMs = 0;
+
+        if (steerLeft || steerRight)
+        {
+            lastSteerInputMs = nowMs;
+        }
+
+        if (nowMs - lastSteerInputMs > 75)
+        {
+            sys.manualSteerPct = 0.0f;
+        }
     }
 }
 void InputLogic::handleAutoButtons(

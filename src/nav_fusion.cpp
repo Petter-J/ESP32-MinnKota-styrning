@@ -87,6 +87,16 @@ void NavFusion::update(const GpsFix &gps, const ImuHeading &imu, SensorData &s)
         useGpsHeading = false;
     }
 
+    if (imu.valid)
+    {
+        s.motorHeadingDeg = imu.headingDeg;
+        s.motorImuValid = true;
+    }
+    else
+    {
+        s.motorImuValid = false;
+    }
+
     if (useGpsHeading && gps.courseValid)
     {
         s.headingDeg = s.courseOverGroundDeg;
@@ -95,8 +105,6 @@ void NavFusion::update(const GpsFix &gps, const ImuHeading &imu, SensorData &s)
     }
     else if (imu.valid)
     {
-        s.motorHeadingDeg = imu.headingDeg;
-        s.motorImuValid = true;
 
         if (s.boatImuValid)
         {

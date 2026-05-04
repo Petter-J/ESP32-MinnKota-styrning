@@ -15,8 +15,9 @@ struct StatusPacket
     uint8_t mode = 0;
     uint8_t manualThrustPct = 0;     // 0..100
     uint8_t targetSpeedPct = 0;      // 0..100
-    uint16_t headingDeg10 = 0;       // 0..3600  (grader * 10)
-    uint16_t targetHeadingDeg10 = 0; // 0..3600  (grader * 10)
+    uint16_t headingDeg10 = 0;       // Boat heading / fallback heading
+    uint16_t motorHeadingDeg10 = 0;  // Motor BNO heading
+    uint16_t targetHeadingDeg10 = 0; // Target heading
     uint8_t satellites = 0;
     uint8_t satellitesInView = 0;
     uint8_t flags = 0;     // bit0 = gpsValid

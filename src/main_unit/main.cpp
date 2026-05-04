@@ -309,7 +309,25 @@ void loop()
     const uint32_t localMask = readLocalButtons();
 
     // 2. Read ALL remotes (combined inside RemoteEspNow)
-    const uint32_t remoteMask = gRemote.getCombinedMask(now);
+    const uint32_t rawRemoteMask = gRemote.getCombinedMask(now);
+
+    static uint32_t remoteMaskFiltered = 0;
+    static uint32_t lastRemoteNonZeroMs = 0;
+
+    if (rawRemoteMask != 0)
+    {
+        remoteMaskFiltered = rawRemoteMask;
+        lastRemoteNonZeroMs = now;
+    }
+    else
+    {
+        if (now - lastRemoteNonZeroMs > 30)
+        {
+            remoteMaskFiltered = 0;
+        }
+    }
+
+    const uint32_t remoteMask = remoteMaskFiltered;
 
     const uint32_t lastRx = gRemote.lastRxTimeMs();
 
@@ -318,11 +336,10 @@ void loop()
             ? (now - lastRx)
             : 999999;
 
-    if (lastRx > 0 && rxAge < 500)
+    if (lastRx > 0 && rxAge < 1000)
     {
         gSys.lastCommandTimeMs = now;
     }
-
 
     // 3. Combine all inputs
     const uint32_t effectiveMask = localMask | remoteMask;
@@ -432,6 +449,7 @@ void loop()
         pkt.headingDeg10 = (uint16_t)roundf(gSys.sensors.headingDeg * 10.0f);
     }
 
+    pkt.motorHeadingDeg10 = (uint16_t)roundf(gSys.sensors.motorHeadingDeg * 10.0f);
     pkt.targetHeadingDeg10 = (uint16_t)roundf(gSys.targetHeadingDeg * 10.0f);
 
     pkt.satellites = (uint8_t)gSys.sensors.satellites;
