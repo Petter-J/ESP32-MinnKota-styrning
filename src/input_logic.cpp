@@ -75,21 +75,38 @@ void InputLogic::applySafety(
         if (motorTiltSafe && tiltExceeded)
         {
             motorTiltSafe = false;
+            sys.sensors.motorTiltUnsafe = true;
             setMode(SystemMode::STOP, nowMs, sys, controller);
             return;
         }
+
+        static uint32_t tiltRecoveredStartMs = 0;
 
         if (!motorTiltSafe)
         {
             if (tiltRecovered)
             {
-                motorTiltSafe = true;
+                if (tiltRecoveredStartMs == 0)
+                {
+                    tiltRecoveredStartMs = nowMs;
+                }
+
+                if (nowMs - tiltRecoveredStartMs >= 1000)
+                {
+                    motorTiltSafe = true;
+                    sys.sensors.motorTiltUnsafe = false;
+                }
             }
             else
             {
+                tiltRecoveredStartMs = 0;
                 setMode(SystemMode::STOP, nowMs, sys, controller);
                 return;
             }
+        }
+        else
+        {
+            tiltRecoveredStartMs = 0;
         }
     }
     // =========================

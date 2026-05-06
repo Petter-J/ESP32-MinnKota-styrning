@@ -13,6 +13,7 @@ struct RemotePacket
 struct StatusPacket
 {
     uint8_t mode = 0;
+    uint8_t motorTiltUnsafe = 0;
     uint8_t manualThrustPct = 0;     // 0..100
     uint8_t targetSpeedPct = 0;      // 0..100
     uint16_t headingDeg10 = 0;       // Boat heading / fallback heading
@@ -31,6 +32,7 @@ struct StatusPacket
 };
 
 static constexpr uint8_t STATUS_FLAG_GPS_VALID = 1 << 0;
+static constexpr uint8_t STATUS_FLAG_OTA_ACTIVE = 1 << 1;
 static constexpr uint8_t REMOTE_FLAG_BOAT_IMU_VALID = 1 << 0;
 static constexpr uint8_t STATUS_CAL_FLAG_ACTIVE = 1 << 0;
 static constexpr uint8_t STATUS_CAL_FLAG_COMPLETE = 1 << 1;

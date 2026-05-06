@@ -63,7 +63,10 @@ static uint16_t modeColor(uint8_t mode)
     }
 }
 
-
+static uint16_t headingDisplayDeg(uint16_t deg10)
+{
+    return deg10 / 10;
+}
 
 static void drawCenteredText(const char* text, int16_t centerX, int16_t y, uint8_t textSize, uint16_t color)
 {
@@ -110,9 +113,13 @@ static void drawHeader(uint8_t mode, bool linkAlive)
 
 static void drawFooter(const StatusPacket &status, bool linkAlive, uint32_t buttonMask)
 {
-    tft.fillRect(0, 220, 240, 60, COLOR_BG);
+    // Footer top row
+    tft.fillRect(0, 220, 240, 30, COLOR_BG);
 
-    tft.drawFastHLine(0, 220, 240, COLOR_DIM);
+    // Footer bottom/debug row
+    //tft.fillRect(0, 250, 240, 30, COLOR_BG);
+
+    
 
     tft.setTextSize(2);
     tft.setTextColor(COLOR_DIM);
@@ -132,44 +139,42 @@ static void drawFooter(const StatusPacket &status, bool linkAlive, uint32_t butt
 
     tft.setTextSize(2);
 
+    tft.fillRect(20, 250, 60, 30, COLOR_BG);
+
     tft.setTextColor(COLOR_ACCENT);
     tft.setCursor(25, 260);
     tft.print("R");
     tft.print(status.counter);
 
+    tft.fillRect(90, 250, 60, 30, COLOR_BG);
+
     tft.setTextColor(COLOR_WARN);
     tft.setCursor(90, 260);
     tft.print("BH");
-    tft.print(status.headingDeg10 / 10);
+    tft.print(headingDisplayDeg(status.headingDeg10));
+
+    tft.fillRect(165, 250, 75, 30, COLOR_BG);
 
     tft.setCursor(165, 260);
     tft.print("MH");
-    tft.print(status.motorHeadingDeg10 / 10);
+    tft.print(headingDisplayDeg(status.motorHeadingDeg10));
 }
 // =====================================================
 // Public API
 // =====================================================
 void display_lcd_begin()
 {
-    Serial.println("[LCD] begin");
-
     ledcSetup(0, 10000, 8);        // channel 0, 10kHz, 8-bit
     ledcAttachPin(LCD_BL, 0);
-    ledcWrite(0, 60);            // 0–255 (120 ≈ 50%)
+    ledcWrite(0, 60);            
 
     SPI.begin(LCD_SCLK, -1, LCD_MOSI, LCD_CS);
 
     tft.init(240, 280);
     tft.setSPISpeed(40000000);
     tft.setRotation(0);
-    tft.setRotation(0);
     tft.fillScreen(COLOR_BG);
     tft.setTextWrap(false);
-
-    drawCenteredText("REMOTE 2", 120, 90, 3, COLOR_TEXT);
-    drawCenteredText("DISPLAY READY", 120, 140, 2, COLOR_ACCENT);
-
-    Serial.println("[LCD] init done");
 }
 
 void display_lcd_update(
@@ -198,8 +203,9 @@ void display_lcd_update(
     static uint8_t lastCalPhase = 255;
     static uint8_t lastSatellitesInView = 255;
     static uint8_t lastCounter = 255;
-    static uint16_t lastHeadingDeg10 = 65535;
-    static uint16_t lastMotorHeadingDeg10 = 65535;
+    static uint8_t lastMotorTiltUnsafe = 255;
+    static uint16_t lastHeadingBucket = 65535;
+    static uint16_t lastMotorHeadingBucket = 65535;
 
     const bool sameScreenData =
         !firstDraw &&
@@ -217,8 +223,9 @@ void display_lcd_update(
         (status.calBucketMask == lastCalBucketMask) &&
         (status.satellitesInView == lastSatellitesInView) &&
         (status.counter == lastCounter) &&
-        (status.headingDeg10 == lastHeadingDeg10) &&
-        (status.motorHeadingDeg10 == lastMotorHeadingDeg10) &&
+        (status.motorTiltUnsafe == lastMotorTiltUnsafe) &&
+        (headingDisplayDeg(status.headingDeg10) == lastHeadingBucket) &&
+        (headingDisplayDeg(status.motorHeadingDeg10) == lastMotorHeadingBucket) &&
         (status.calPhase == lastCalPhase);
 
     if (sameScreenData)
@@ -228,6 +235,10 @@ void display_lcd_update(
 
     const bool doFullDraw = firstDraw;
     firstDraw = false;
+
+    const bool modeChanged = (status.mode != lastMode);
+    const bool statusChanged = (hasStatus != lastHasStatus);
+    const bool motorTiltChanged = (status.motorTiltUnsafe != lastMotorTiltUnsafe);
 
     lastHasStatus = hasStatus;
     lastLinkAlive = linkAlive;
@@ -244,35 +255,45 @@ void display_lcd_update(
     lastCalFlags = status.calFlags;
     lastCalBucketMask = status.calBucketMask;
     lastCalPhase = status.calPhase;
-    lastHeadingDeg10 = status.headingDeg10;
-    lastMotorHeadingDeg10 = status.motorHeadingDeg10;
-    
+    lastMotorTiltUnsafe = status.motorTiltUnsafe;
+    lastHeadingBucket = headingDisplayDeg(status.headingDeg10);
+    lastMotorHeadingBucket = headingDisplayDeg(status.motorHeadingDeg10);
+
     if (doFullDraw)
     {
         tft.fillScreen(COLOR_BG);
     }
     else
     {
-        tft.fillRect(0, 40, 240, 160, COLOR_BG);
+        if (modeChanged || statusChanged || motorTiltChanged)
+        {
+            tft.fillRect(0, 40, 240, 180, COLOR_BG);
+        }
     }
 
     if (!hasStatus)
     {
         tft.fillRect(0, 0, 240, 40, COLOR_BAD);
 
-        tft.setTextColor(ST77XX_BLACK);
-        tft.setTextSize(2);
-        tft.setCursor(40, 10);
-        tft.print("NO DATA");
+        drawCenteredText("NO DATA", 120, 10, 3, ST77XX_BLACK);
 
         drawCenteredText("WAITING FOR", 120, 90, 3, COLOR_TEXT);
         drawCenteredText("MAIN UNIT", 120, 130, 3, COLOR_TEXT);
-        drawCenteredText(linkAlive ? "LINK OK" : "LINK LOST", 120, 150, 2, linkAlive ? COLOR_GOOD : COLOR_BAD);
+        
 
         return;
     }
 
-    if (calActive || calComplete)
+    const bool otaActive =
+        (status.flags & STATUS_FLAG_OTA_ACTIVE) != 0;
+
+    // Header
+    if (otaActive)
+    {
+        tft.fillRect(0, 0, 240, 40, COLOR_CAL);
+        drawCenteredText("OTA", 120, 10, 3, ST77XX_BLACK);
+    }
+    else if (calActive || calComplete)
     {
         tft.fillRect(0, 0, 240, 40, COLOR_CAL);
         drawCenteredText("CAL", 120, 10, 3, ST77XX_BLACK);
@@ -282,6 +303,18 @@ void display_lcd_update(
         drawHeader(status.mode, linkAlive);
     }
 
+    // OTA screen
+    if (otaActive)
+    {
+        drawCenteredText("OTA", 120, 82, 5, COLOR_CAL);
+        drawCenteredText("UPDATE MODE", 120, 155, 2, COLOR_TEXT);
+        drawCenteredText("192.168.4.1", 120, 195, 2, COLOR_TEXT);
+
+        drawFooter(status, linkAlive, buttonMask);
+        return;
+    }
+
+    // CAL screen
     if (calActive || calComplete)
     {
         char calLine1[32];
@@ -330,14 +363,25 @@ void display_lcd_update(
     if (status.mode == 0) // STOP
     {
         drawCenteredText("STOP", 120, 90, 5, COLOR_STOP);
-        drawCenteredText("SYSTEM IDLE", 120, 160, 2, COLOR_DIM);
+
+        if (status.motorTiltUnsafe)
+        {
+            drawCenteredText("MOTOR UP", 120, 160, 3, COLOR_STOP);
+        }
+        else
+        {
+            drawCenteredText("MOTOR OK", 120, 160, 3, COLOR_GOOD);
+        }
     }
     else if (status.mode == 1) // MANUAL
     {
         char line1[32];
         snprintf(line1, sizeof(line1), "THR %u%%", status.manualThrustPct);
+
+        tft.fillRect(0, 55, 240, 65, COLOR_BG);
         drawCenteredText(line1, 120, 72, 5, COLOR_MANUAL);
 
+        tft.fillRect(0, 130, 240, 70, COLOR_BG);
         drawSteerIndicator(status.steerState, 120, 145);
     }
     else if (status.mode == 2) // AUTO

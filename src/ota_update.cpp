@@ -70,3 +70,8 @@ void ota_handle()
 
     otaServer.handleClient();
 }
+
+bool ota_is_active()
+{
+    return gOtaActive;
+}

@@ -240,6 +240,33 @@ void loop()
 
     const uint32_t now = millis();
 
+    // Emergency OTA: local STOP held 5 sec, before sensors/navigation
+    static uint32_t earlyOtaStopHoldStartMs = 0;
+    static bool earlyOtaTriggered = false;
+
+    const uint32_t earlyLocalMask = readLocalButtons();
+    const bool earlyLocalStopHeld =
+        (earlyLocalMask & buttonBit(ButtonId::STOP)) != 0;
+
+    if (earlyLocalStopHeld)
+    {
+        if (earlyOtaStopHoldStartMs == 0)
+        {
+            earlyOtaStopHoldStartMs = now;
+        }
+
+        if (!earlyOtaTriggered && (now - earlyOtaStopHoldStartMs) >= 5000)
+        {
+            earlyOtaTriggered = true;
+            ota_begin();
+        }
+    }
+    else
+    {
+        earlyOtaStopHoldStartMs = 0;
+        earlyOtaTriggered = false;
+    }
+
     ota_handle();
 
     float remoteBoatHeadingDeg = 0.0f;
@@ -395,33 +422,6 @@ void loop()
         startCalibrationClockwise();
     }
 
-    static uint32_t otaStopHoldStartMs = 0;
-    static bool otaStopTriggered = false;
-
-    const bool localStopHeld =
-        (localMask & buttonBit(ButtonId::STOP)) != 0;
-
-    if (localStopHeld)
-    {
-        if (otaStopHoldStartMs == 0)
-        {
-            otaStopHoldStartMs = now;
-        }
-
-        if (!otaStopTriggered && (now - otaStopHoldStartMs) >= 5000)
-        {
-            otaStopTriggered = true;
-
-            Serial.println("[OTA] Local STOP long-hold trigger");
-            ota_begin();
-        }
-    }
-    else
-    {
-        otaStopHoldStartMs = 0;
-        otaStopTriggered = false;
-    }
-
     // 8. Control update
     if (now - lastControlMs >= TimingConfig::CONTROL_INTERVAL_MS)
     {
@@ -435,6 +435,9 @@ void loop()
     // 9. Send status to remotes
     StatusPacket pkt;
     pkt.mode = (uint8_t)gSys.mode;
+
+    pkt.motorTiltUnsafe = gSys.sensors.motorTiltUnsafe ? 1 : 0;
+
     pkt.manualThrustPct = (uint8_t)roundf(gSys.manualThrustPct);
     pkt.targetSpeedPct = (uint8_t)roundf(gSys.targetSpeedPct);
     pkt.gpsSpeedCmps = (uint16_t)roundf(gSys.sensors.gpsSpeedMps * 100.0f);
@@ -483,6 +486,11 @@ void loop()
     if (gSys.sensors.gpsValid)
     {
         pkt.flags |= STATUS_FLAG_GPS_VALID;
+    }
+
+    if (ota_is_active())
+    {
+        pkt.flags |= STATUS_FLAG_OTA_ACTIVE;
     }
 
     //pkt.counter = (uint8_t)gStatusCounter++;

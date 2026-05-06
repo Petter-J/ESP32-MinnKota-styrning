@@ -2,3 +2,4 @@
 
 void ota_begin();
 void ota_handle();
+bool ota_is_active();

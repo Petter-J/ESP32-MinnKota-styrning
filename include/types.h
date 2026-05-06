@@ -63,6 +63,7 @@ struct SensorData
 
         bool boatImuValid = false;
         bool motorImuValid = false;
+        bool motorTiltUnsafe = false;
 
         float speedPct = 0.0f;
 
