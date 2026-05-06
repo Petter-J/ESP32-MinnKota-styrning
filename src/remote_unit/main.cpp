@@ -190,9 +190,11 @@ void setup()
     // Display
     display_begin();
 
-    gBoatImuStarted = gBoatImu.begin(3, 4, 100000, 0.0f);
-
-    
+    gBoatImuStarted = gBoatImu.begin(
+        BoatCompassConfig::SDA_PIN,
+        BoatCompassConfig::SCL_PIN,
+        BoatCompassConfig::FREQ_HZ,
+        BoatCompassConfig::B_HEADING_OFFSET_DEG);
 
     if (gBoatImuStarted)
     {

@@ -94,7 +94,7 @@ ActuatorCommand AnchorController::update(float dtSec, SystemState &sys, PidContr
     ActuatorCommand out{};
     strcpy(sys.sensors.autoState, "ANCHOR");
 
-    if (!sys.anchorActive || !sys.sensors.gpsValid || !sys.sensors.headingValid)
+    if (!sys.anchorActive || !sys.sensors.gpsValid || !sys.sensors.motorImuValid)
     {
         strcpy(sys.sensors.autoState, "A_WAIT");
         out.thrustPct = 0.0f;
@@ -155,7 +155,7 @@ ActuatorCommand AnchorController::update(float dtSec, SystemState &sys, PidContr
         sys.anchorLonDeg);
 
     const float headingError =
-        shortestAngleErrorDeg(targetBearingDeg, sys.sensors.headingDeg);
+        shortestAngleErrorDeg(targetBearingDeg, sys.sensors.motorHeadingDeg);
 
     float steerCmd = headingPid.update(headingError, dtSec);
     out.steerPct = clampf(steerCmd, Limits::STEER_MIN_PCT, Limits::STEER_MAX_PCT);

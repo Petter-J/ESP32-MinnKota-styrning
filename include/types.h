@@ -57,6 +57,8 @@ struct SensorData
         // Separata IMU-värden för framtida dual-BNO085-logik
         float boatHeadingDeg = 0.0f;
         float motorHeadingDeg = 0.0f;
+        float motorPitchDeg = 0.0f;
+        float motorRollDeg = 0.0f;
         float motorAngleDeg = 0.0f;
 
         bool boatImuValid = false;

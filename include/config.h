@@ -76,12 +76,22 @@ namespace GpsConfig
 
 namespace CompassConfig
 {
-    // I2C för BNO085
+    // I2C för MOTOR BNO085
     static constexpr int SDA_PIN = 3;
     static constexpr int SCL_PIN = 4;
     static constexpr uint32_t FREQ_HZ = 100000;
 
-    static constexpr float HEADING_OFFSET_DEG = 130.0f;
+    static constexpr float M_HEADING_OFFSET_DEG = 0.0f;
+}
+
+namespace BoatCompassConfig
+{
+    // I2C för BOAT BNO085
+    static constexpr int SDA_PIN = 3;
+    static constexpr int SCL_PIN = 4;
+    static constexpr uint32_t FREQ_HZ = 100000;
+
+    static constexpr float B_HEADING_OFFSET_DEG = 0.0f;
 }
 
 // ============================================================
@@ -185,6 +195,14 @@ namespace SafetyConfig
 
     static constexpr uint32_t SENSOR_FAIL_TIMEOUT_MS = 2000;
     static constexpr uint32_t COMMAND_TIMEOUT_MS = 3000;
+}
+
+namespace MotorTiltSafetyConfig
+{
+    static constexpr bool ENABLED = true;
+
+    static constexpr float STOP_TILT_DEG = 60.0f;
+    static constexpr float RECOVER_TILT_DEG = 30.0f;
 }
 
 // ============================================================

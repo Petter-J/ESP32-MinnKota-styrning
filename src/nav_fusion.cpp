@@ -90,6 +90,8 @@ void NavFusion::update(const GpsFix &gps, const ImuHeading &imu, SensorData &s)
     if (imu.valid)
     {
         s.motorHeadingDeg = imu.headingDeg;
+        s.motorPitchDeg = imu.pitchDeg;
+        s.motorRollDeg = imu.rollDeg;
         s.motorImuValid = true;
     }
     else

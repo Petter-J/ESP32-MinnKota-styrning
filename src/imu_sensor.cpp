@@ -36,7 +36,7 @@ bool ImuSensor::begin()
 
     _headingDeg = 0.0f;
     // Default single-IMU config (kan senare ersättas med boat/motor-specifik config)
-    _headingOffsetDeg = CompassConfig::HEADING_OFFSET_DEG;
+    _headingOffsetDeg = CompassConfig::M_HEADING_OFFSET_DEG;
     _valid = false;
     _imuFailCount = 0;
 
@@ -113,6 +113,15 @@ void ImuSensor::update(ImuHeading& out)
             const float qj = _sensorValue.un.rotationVector.j;
             const float qk = _sensorValue.un.rotationVector.k;
             const float qr = _sensorValue.un.rotationVector.real;
+
+            float pitchRad = asinf(2.0f * (qr * qj - qk * qi));
+
+            float rollRad = atan2f(
+                2.0f * (qr * qi + qj * qk),
+                1.0f - 2.0f * (qi * qi + qj * qj));
+
+            out.pitchDeg = pitchRad * 180.0f / PI;
+            out.rollDeg = rollRad * 180.0f / PI;
 
             float yawRad = atan2f(
                 2.0f * (qr * qk + qi * qj),

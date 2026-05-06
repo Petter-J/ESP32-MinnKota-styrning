@@ -59,6 +59,39 @@ void InputLogic::applySafety(
     SystemState &sys,
     MainController &controller)
 {
+
+    static bool motorTiltSafe = true;
+
+    if (MotorTiltSafetyConfig::ENABLED && sys.sensors.motorImuValid)
+    {
+        const bool tiltExceeded =
+            fabsf(sys.sensors.motorPitchDeg) > MotorTiltSafetyConfig::STOP_TILT_DEG ||
+            fabsf(sys.sensors.motorRollDeg) > MotorTiltSafetyConfig::STOP_TILT_DEG;
+
+        const bool tiltRecovered =
+            fabsf(sys.sensors.motorPitchDeg) < MotorTiltSafetyConfig::RECOVER_TILT_DEG &&
+            fabsf(sys.sensors.motorRollDeg) < MotorTiltSafetyConfig::RECOVER_TILT_DEG;
+
+        if (motorTiltSafe && tiltExceeded)
+        {
+            motorTiltSafe = false;
+            setMode(SystemMode::STOP, nowMs, sys, controller);
+            return;
+        }
+
+        if (!motorTiltSafe)
+        {
+            if (tiltRecovered)
+            {
+                motorTiltSafe = true;
+            }
+            else
+            {
+                setMode(SystemMode::STOP, nowMs, sys, controller);
+                return;
+            }
+        }
+    }
     // =========================
     // COMMAND TIMEOUT (link lost)
     // =========================

@@ -15,6 +15,8 @@ struct ImuHeading
 {
     bool valid = false;
     float headingDeg = 0.0f;
+    float pitchDeg = 0.0f;
+    float rollDeg = 0.0f;
     uint8_t accuracy = 0;
 };
 

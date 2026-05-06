@@ -446,11 +446,20 @@ void loop()
     }
     else
     {
-        pkt.headingDeg10 = (uint16_t)roundf(gSys.sensors.headingDeg * 10.0f);
+        pkt.headingDeg10 = 0;
     }
 
-    pkt.motorHeadingDeg10 = (uint16_t)roundf(gSys.sensors.motorHeadingDeg * 10.0f);
+    if (gSys.sensors.motorImuValid)
+    {
+        pkt.motorHeadingDeg10 = (uint16_t)roundf(gSys.sensors.motorHeadingDeg * 10.0f);
+    }
+    else
+    {
+        pkt.motorHeadingDeg10 = 0;
+    }
+
     pkt.targetHeadingDeg10 = (uint16_t)roundf(gSys.targetHeadingDeg * 10.0f);
+    
 
     pkt.satellites = (uint8_t)gSys.sensors.satellites;
     pkt.satellitesInView = (uint8_t)gSys.sensors.satellitesInView;
