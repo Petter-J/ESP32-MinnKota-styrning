@@ -10,18 +10,39 @@ static bool autoCanUseGpsCourse(const SystemState &sys)
            sys.sensors.speedMps >= AutoConfig::MIN_GPS_COURSE_SPEED_MPS;
 }
 
-static float getAutoCourseHeadingDeg(const SystemState &sys)
+float AutoController::getAutoCourseHeadingDeg(const SystemState &sys)
 {
     if (AutoConfig::BENCH_TEST_AUTO_WITHOUT_GPS)
         return sys.sensors.motorHeadingDeg;
 
-    return sys.sensors.courseOverGroundDeg;
+    return filterCogDeg(sys.sensors.courseOverGroundDeg);
 }
 
 static float speedPctToMps(float pct)
 {
     const float clampedPct = clampf(pct, 0.0f, 100.0f);
     return (clampedPct / 100.0f) * AutoConfig::MAX_SPEED_MPS;
+}
+
+float AutoController::filterCogDeg(float rawCogDeg)
+{
+    if (!_cogFilterInitialized)
+    {
+        _filteredCogDeg = rawCogDeg;
+        _cogFilterInitialized = true;
+        return _filteredCogDeg;
+    }
+
+    const float diffDeg =
+        shortestAngleErrorDeg(rawCogDeg, _filteredCogDeg);
+
+    if (fabs(diffDeg) <= AutoConfig::COG_MAX_JUMP_DEG)
+    {
+        _filteredCogDeg =
+            wrap360(_filteredCogDeg + diffDeg * AutoConfig::COG_FILTER_ALPHA);
+    }
+
+    return _filteredCogDeg;
 }
 
 static ActuatorCommand makeManualFallbackCommand(SystemState &sys)
@@ -75,6 +96,8 @@ static float computeHeadingSteerPct(
 
 void AutoController::begin()
 {
+    _cogFilterInitialized = false;
+    _filteredCogDeg = 0.0f;
 }
 
 ActuatorCommand AutoController::update(

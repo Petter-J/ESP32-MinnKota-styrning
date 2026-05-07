@@ -14,4 +14,10 @@ public:
         SystemState &sys,
         PidController &headingPid,
         PidController &speedPid);
+
+private:
+    bool _cogFilterInitialized = false;
+    float _filteredCogDeg = 0.0f;
+    float filterCogDeg(float rawCogDeg);
+    float getAutoCourseHeadingDeg(const SystemState &sys);
 };

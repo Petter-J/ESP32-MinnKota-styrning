@@ -124,6 +124,9 @@ namespace AutoConfig
     static constexpr float MAX_SPEED_MPS = 2.5f;
 
     static constexpr bool BENCH_TEST_AUTO_WITHOUT_GPS = true;
+
+    static constexpr float COG_FILTER_ALPHA = 0.2f;
+    static constexpr float COG_MAX_JUMP_DEG = 25.0f;
 }
 
 // ============================================================
