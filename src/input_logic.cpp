@@ -122,7 +122,7 @@ void InputLogic::applySafety(
     {
         if (sys.mode != SystemMode::STOP)
         {
-            DBG_PRINTF("[SAFE] command timeout age=%lu -> STOP\n", commandAgeMs);
+            
             setMode(SystemMode::STOP, nowMs, sys, controller);
         }
         return;
@@ -153,7 +153,7 @@ void InputLogic::applySafety(
 
         if (nowMs - _lastValidAutoSensorMs > SafetyConfig::SENSOR_FAIL_TIMEOUT_MS)
         {
-            DBG_PRINTLN("[SAFE] AUTO sensor timeout -> STOP");
+           
             setMode(SystemMode::STOP, nowMs, sys, controller);
         }
     }
@@ -176,7 +176,7 @@ void InputLogic::applySafety(
 
         if (nowMs - _lastValidAnchorSensorMs > SafetyConfig::SENSOR_FAIL_TIMEOUT_MS)
         {
-            DBG_PRINTLN("[SAFE] ANCHOR sensor timeout -> STOP");
+            
             setMode(SystemMode::STOP, nowMs, sys, controller);
         }
     }
@@ -217,7 +217,7 @@ void InputLogic::setMode(
     controller.onModeChanged(newMode, sys);
     sys.lastCommandTimeMs = nowMs;
 
-    DBG_PRINTF("[MODE] -> %s\n", modeToString(newMode));
+    
 }
 
 void InputLogic::handleStop(
@@ -267,25 +267,30 @@ void InputLogic::handleModeButtons(
             return;
         }
 
-        if (!sys.sensors.gpsValid ||
-            !sys.sensors.speedValid ||
-            sys.sensors.gpsSpeedMps < AutoConfig::MIN_GPS_COURSE_SPEED_MPS)
-        {
-            DBG_PRINTLN("[AUTO] no valid GPS movement -> stay current mode");
-            return;
-        }
+       // if (!sys.sensors.gpsValid ||
+       //    !sys.sensors.speedValid ||
+       //    sys.sensors.gpsSpeedMps < AutoConfig::MIN_GPS_COURSE_SPEED_MPS)
+       // {
+            
+          //  return;
+       // }
 
-        sys.targetHeadingDeg = sys.sensors.courseOverGroundDeg;
+      //----------------TILLFÄLLIG FÖR TESTNING------------------
+        sys.targetHeadingDeg = sys.sensors.motorHeadingDeg;
+        sys.targetSpeedMps = sys.sensors.gpsSpeedMps;
 
         sys.targetSpeedPct = clampf(
-            (sys.sensors.gpsSpeedMps / AutoConfig::MAX_SPEED_MPS) * 100.0f,
+            (sys.targetSpeedMps / AutoConfig::MAX_SPEED_MPS) * 100.0f,
             Limits::THRUST_MIN_PCT,
             Limits::THRUST_MAX_PCT);
+      //----------------------------------------------------------
 
-        DBG_PRINTF("[AUTO] entry hdg=%.1f speed=%.2f pct=%.1f\n",
-                   sys.targetHeadingDeg,
-                   sys.sensors.gpsSpeedMps,
-                   sys.targetSpeedPct);
+      //  sys.targetHeadingDeg = sys.sensors.courseOverGroundDeg;
+
+        //sys.targetSpeedPct = clampf(
+        //    (sys.sensors.gpsSpeedMps / AutoConfig::MAX_SPEED_MPS) * 100.0f,
+          //  Limits::THRUST_MIN_PCT,
+           // Limits::THRUST_MAX_PCT);
 
         setMode(SystemMode::AUTO, nowMs, sys, controller);
         return;
@@ -305,16 +310,14 @@ void InputLogic::handleModeButtons(
                 {
                     sys.anchorLatDeg = _anchorSumLat / _anchorCount;
                     sys.anchorLonDeg = _anchorSumLon / _anchorCount;
-                    sys.anchorActive = true;
-
-                    DBG_PRINTF("[ANCHOR] avg fix used (%u samples)\n", _anchorCount);
+                    sys.anchorActive = true;     
                 }
 
                 setMode(SystemMode::ANCHOR, nowMs, sys, controller);
             }
             else
             {
-                DBG_PRINTF("[ANCHOR] thrust too high (%.1f) -> STOP\n", sys.actuators.thrustPct);
+                
                 setMode(SystemMode::STOP, nowMs, sys, controller);
             }
         }
@@ -355,7 +358,7 @@ void InputLogic::handleManualButtons(
                 _cfg.manualThrustMaxPct);
         }
 
-        DBG_PRINTF("[MAN] thrust -> %.1f\n", sys.manualThrustPct);
+        
     }
     else if (thrustDown && !thrustUp)
     {
@@ -365,9 +368,7 @@ void InputLogic::handleManualButtons(
                 sys.manualThrustPct - _cfg.manualThrustStepPct,
                 _cfg.manualThrustMinPct,
                 _cfg.manualThrustMaxPct);
-
-            DBG_PRINTF("[MAN] thrust -> %.1f\n", sys.manualThrustPct);
-        }
+         }
     }
 
     if (steerLeft && !steerRight)
@@ -406,39 +407,49 @@ void InputLogic::handleAutoButtons(
 
     _lastManualAdjustMs = nowMs;
 
-    // SPEED
+    static constexpr float KN_TO_MPS = 0.514444f;
+
+    const float speedStepMps =
+        AutoControlConfig::SPEED_STEP_KN * KN_TO_MPS;
+
     if (btn.thrustUpHeld && !btn.thrustDownHeld)
     {
+        sys.targetSpeedMps = clampf(
+            sys.targetSpeedMps + speedStepMps,
+            0.0f,
+            AutoConfig::MAX_SPEED_MPS);
+
         sys.targetSpeedPct = clampf(
-            sys.targetSpeedPct + AutoControlConfig::SPEED_STEP_PCT,
+            (sys.targetSpeedMps / AutoConfig::MAX_SPEED_MPS) * 100.0f,
             Limits::THRUST_MIN_PCT,
             Limits::THRUST_MAX_PCT);
-
-        DBG_PRINTF("[AUTO] speed -> %.1f\n", sys.targetSpeedPct);
     }
+
     else if (btn.thrustDownHeld && !btn.thrustUpHeld)
     {
-        sys.targetSpeedPct = clampf(
-            sys.targetSpeedPct - AutoControlConfig::SPEED_STEP_PCT,
-            Limits::THRUST_MIN_PCT,
-            Limits::THRUST_MAX_PCT);
+        sys.targetSpeedMps = clampf(
+            sys.targetSpeedMps - speedStepMps,
+            0.0f,
+            AutoConfig::MAX_SPEED_MPS);
 
-        DBG_PRINTF("[AUTO] speed -> %.1f\n", sys.targetSpeedPct);
+        sys.targetSpeedPct = clampf(
+            (sys.targetSpeedMps / AutoConfig::MAX_SPEED_MPS) * 100.0f,
+            Limits::THRUST_MIN_PCT,
+            Limits::THRUST_MAX_PCT);    
     }
 
     // HEADING
     if (btn.steerLeftHeld && !btn.steerRightHeld)
     {
         sys.targetHeadingDeg = wrap360(
-            sys.targetHeadingDeg - AutoControlConfig::HEADING_STEP_DEG);
-
-        DBG_PRINTF("[AUTO] heading -> %.1f\n", sys.targetHeadingDeg);
+            sys.targetHeadingDeg - AutoControlConfig::HEADING_STEP_DEG);   
     }
+
     else if (btn.steerRightHeld && !btn.steerLeftHeld)
     {
         sys.targetHeadingDeg = wrap360(
             sys.targetHeadingDeg + AutoControlConfig::HEADING_STEP_DEG);
 
-        DBG_PRINTF("[AUTO] heading -> %.1f\n", sys.targetHeadingDeg);
+        
     }
 }

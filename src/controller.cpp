@@ -261,6 +261,7 @@ void applyCommand(const RemoteCommand &cmd, SystemState &sys, MainController &co
     if (cmd.hasTargetSpeed)
     {
         sys.targetSpeedPct = clampf(cmd.targetSpeedPct, Limits::THRUST_MIN_PCT, Limits::THRUST_MAX_PCT);
+        sys.targetSpeedMps = sys.sensors.gpsSpeedMps;
     }
 
     if (cmd.hasAnchorHere && cmd.anchorHere)

@@ -21,6 +21,8 @@ namespace AutoControlConfig
     static constexpr float SPEED_STEP_PCT = 5.0f;
     static constexpr float HEADING_STEP_DEG = 5.0f;
     static constexpr uint32_t REPEAT_MS = 250;
+    static constexpr float SPEED_STEP_KN = 0.1f;
+    
 }
 
 // ============================================================
@@ -117,7 +119,7 @@ namespace MotorConfig
 // ============================================================
 namespace AutoConfig
 {
-    static constexpr float MIN_GPS_COURSE_SPEED_MPS = 0.5f;
+    static constexpr float MIN_GPS_COURSE_SPEED_MPS = 0.0f;
     static constexpr float START_THRUST_PCT = 20.0f;
     static constexpr float MAX_SPEED_MPS = 2.5f;
 }

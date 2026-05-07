@@ -28,6 +28,7 @@ struct StatusPacket
     uint16_t calBucketMask = 0; // bit 0..15 = bucket klar
     uint8_t calPhase = 0;       // 0=none, 1=CW, 2=CCW
     uint16_t gpsSpeedCmps = 0;  // GPS speed * 100
+    uint16_t targetSpeedCmps = 0; // target speed * 100
     uint16_t gpsCogDeg10 = 0;   // GPS COG * 10
 };
 

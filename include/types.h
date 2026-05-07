@@ -37,7 +37,8 @@ struct RemoteCommand
     float manualSteerPct  = 0.0f;   // -100..100
 
     float targetHeadingDeg = 0.0f;  // 0..360
-    float targetSpeedPct   = 0.0f;  // 0..100
+    float targetSpeedPct   = 0.0f;
+    
 
     bool anchorHere = false;
 
@@ -107,6 +108,7 @@ struct SystemState
 
     float targetHeadingDeg = 0.0f;
     float targetSpeedPct = 0.0f;
+    float targetSpeedMps = 0.0f; // m/s
     float manualThrustPct = 0.0f;
     float manualSteerPct = 0.0f;
 

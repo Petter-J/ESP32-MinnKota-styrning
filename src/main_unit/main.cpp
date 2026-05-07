@@ -441,6 +441,7 @@ void loop()
     pkt.manualThrustPct = (uint8_t)roundf(gSys.manualThrustPct);
     pkt.targetSpeedPct = (uint8_t)roundf(gSys.targetSpeedPct);
     pkt.gpsSpeedCmps = (uint16_t)roundf(gSys.sensors.gpsSpeedMps * 100.0f);
+    pkt.targetSpeedCmps = (uint16_t)roundf(gSys.targetSpeedMps * 100.0f);
     pkt.gpsCogDeg10 = (uint16_t)roundf(gSys.sensors.courseOverGroundDeg * 10.0f);
 
     if (gSys.sensors.boatImuValid)
