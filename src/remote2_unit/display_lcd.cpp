@@ -171,7 +171,7 @@ static void drawSteerIndicator(int8_t steerState, int16_t centerX, int16_t y)
     }
 }
 
-static void drawHeader(uint8_t mode, bool linkAlive)
+static void drawHeader(uint8_t mode)
 {
     tft.fillRect(0, HEADER_Y, 240, HEADER_H, modeColor(mode));
 
@@ -355,7 +355,7 @@ void display_lcd_update(
         }
         else
         {
-            drawHeader(status.mode, linkAlive);
+            drawHeader(status.mode);
         }
     }
 
@@ -451,10 +451,14 @@ void display_lcd_update(
 
     if (status.mode == 0) // STOP
     {
-        if (modeChanged)
+        if (modeChanged || status.motorTiltUnsafe != lastMotorTiltUnsafe)
         {
             clearRow1();
-            drawCenteredText("STOP", 120, ROW1_Y + 15, 4, COLOR_STOP);
+
+            if (status.motorTiltUnsafe)
+                drawCenteredText("NOT READY", 120, ROW1_Y + 20, 3, COLOR_STOP);
+            else
+                drawCenteredText("SET MODE", 120, ROW1_Y + 20, 3, COLOR_GOOD);
         }
 
         if (modeChanged || status.motorTiltUnsafe != lastMotorTiltUnsafe)
@@ -462,7 +466,7 @@ void display_lcd_update(
             clearRow2();
 
             if (status.motorTiltUnsafe)
-                drawCenteredText("MOTOR UP", 120, ROW2_Y + 15, 3, COLOR_STOP);
+                drawCenteredText("MOTOR UPPE", 120, ROW2_Y + 15, 3, COLOR_STOP);
             else
                 drawCenteredText("MOTOR OK", 120, ROW2_Y + 15, 3, COLOR_GOOD);
         }

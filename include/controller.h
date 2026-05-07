@@ -34,7 +34,7 @@ public:
 private:
     ActuatorCommand computeStop(const SystemState &sys);
     ActuatorCommand computeManual(const SystemState &sys);
-    ActuatorCommand computeAuto(float dtSec, const SystemState &sys);
+    ActuatorCommand computeAuto(float dtSec, SystemState &sys);
     ActuatorCommand computeAnchor(float dtSec, SystemState &sys);
 
     PidController _headingPid;

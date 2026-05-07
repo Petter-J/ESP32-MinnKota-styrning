@@ -267,30 +267,35 @@ void InputLogic::handleModeButtons(
             return;
         }
 
-       // if (!sys.sensors.gpsValid ||
-       //    !sys.sensors.speedValid ||
-       //    sys.sensors.gpsSpeedMps < AutoConfig::MIN_GPS_COURSE_SPEED_MPS)
-       // {
-            
-          //  return;
-       // }
-
       //----------------TILLFÄLLIG FÖR TESTNING------------------
-        sys.targetHeadingDeg = sys.sensors.motorHeadingDeg;
-        sys.targetSpeedMps = sys.sensors.gpsSpeedMps;
+        if (AutoConfig::BENCH_TEST_AUTO_WITHOUT_GPS)
+        {
+            sys.targetHeadingDeg = sys.sensors.motorHeadingDeg;
+            sys.targetSpeedMps = sys.sensors.gpsSpeedMps;
 
-        sys.targetSpeedPct = clampf(
-            (sys.targetSpeedMps / AutoConfig::MAX_SPEED_MPS) * 100.0f,
-            Limits::THRUST_MIN_PCT,
-            Limits::THRUST_MAX_PCT);
+            sys.targetSpeedPct = clampf(
+                (sys.targetSpeedMps / AutoConfig::MAX_SPEED_MPS) * 100.0f,
+                Limits::THRUST_MIN_PCT,
+                Limits::THRUST_MAX_PCT);
+        }
       //----------------------------------------------------------
+        else
+        {
+            if (!sys.sensors.gpsValid ||
+                !sys.sensors.speedValid ||
+                sys.sensors.gpsSpeedMps < AutoConfig::MIN_GPS_COURSE_SPEED_MPS)
+            {
+                return;
+            }
 
-      //  sys.targetHeadingDeg = sys.sensors.courseOverGroundDeg;
+            sys.targetHeadingDeg = sys.sensors.courseOverGroundDeg;
+            sys.targetSpeedMps = sys.sensors.gpsSpeedMps;
 
-        //sys.targetSpeedPct = clampf(
-        //    (sys.sensors.gpsSpeedMps / AutoConfig::MAX_SPEED_MPS) * 100.0f,
-          //  Limits::THRUST_MIN_PCT,
-           // Limits::THRUST_MAX_PCT);
+            sys.targetSpeedPct = clampf(
+                (sys.targetSpeedMps / AutoConfig::MAX_SPEED_MPS) * 100.0f,
+                Limits::THRUST_MIN_PCT,
+                Limits::THRUST_MAX_PCT);
+        }
 
         setMode(SystemMode::AUTO, nowMs, sys, controller);
         return;

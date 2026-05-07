@@ -159,45 +159,45 @@ ActuatorCommand MainController::computeManual(const SystemState &sys)
     return out;
 }
 
-ActuatorCommand MainController::computeAuto(float dtSec, const SystemState &sys)
+ActuatorCommand MainController::computeAuto(float dtSec, SystemState &sys)
 {
     ActuatorCommand out;
-    strcpy(((SystemState &)sys).sensors.autoState, "RUN");
+    strcpy(sys.sensors.autoState, "RUN");
 
     const float currentSpeedMps = sys.sensors.speedMps;
 
-    if (currentSpeedMps < AutoConfig::MIN_GPS_COURSE_SPEED_MPS)
+    if (!AutoConfig::BENCH_TEST_AUTO_WITHOUT_GPS &&
+        (!sys.sensors.speedValid ||
+         currentSpeedMps < AutoConfig::MIN_GPS_COURSE_SPEED_MPS))
     {
-        strcpy(((SystemState &)sys).sensors.autoState, "START");
+        strcpy(sys.sensors.autoState, "LOW SPD");
+
+        sys.mode = SystemMode::MANUAL;
+        onModeChanged(SystemMode::MANUAL, sys);
 
         out.thrustPct = clampf(
-            AutoConfig::START_THRUST_PCT,
+            sys.manualThrustPct,
             Limits::THRUST_MIN_PCT,
             Limits::THRUST_MAX_PCT);
 
-        if (!sys.sensors.headingValid)
-        {
-            out.steerPct = 0.0f;
-            return out;
-        }
-
-        const float currentHeadingDeg = sys.sensors.headingDeg;
-        float headingError = shortestAngleErrorDeg(sys.targetHeadingDeg, currentHeadingDeg);
-        float steerCmd = _headingPid.update(headingError, dtSec);
-
-        out.steerPct = clampf(steerCmd, Limits::STEER_MIN_PCT, Limits::STEER_MAX_PCT);
+        out.steerPct = 0.0f;
         return out;
     }
 
-    if (!sys.sensors.headingValid || !sys.sensors.speedValid)
+    if (!AutoConfig::BENCH_TEST_AUTO_WITHOUT_GPS &&
+        (!sys.sensors.gpsValid || !sys.sensors.speedValid))
+
     {
-        strcpy(((SystemState &)sys).sensors.autoState, "WAIT");
+        strcpy(sys.sensors.autoState, "WAIT");
         out.steerPct = 0.0f;
         out.thrustPct = 0.0f;
         return out;
     }
 
-    const float currentHeadingDeg = sys.sensors.headingDeg;
+    const float currentHeadingDeg =
+        AutoConfig::BENCH_TEST_AUTO_WITHOUT_GPS
+            ? sys.sensors.motorHeadingDeg
+            : sys.sensors.courseOverGroundDeg;
     float headingError = shortestAngleErrorDeg(sys.targetHeadingDeg, currentHeadingDeg);
     float steerCmd = _headingPid.update(headingError, dtSec);
 
