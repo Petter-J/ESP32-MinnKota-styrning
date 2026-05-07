@@ -2,6 +2,7 @@
 #include <Arduino.h>
 #include "types.h"
 #include "anchor_controller.h"
+#include "auto_controller.h"
 
 class PidController
 {
@@ -40,6 +41,7 @@ private:
     PidController _headingPid;
     PidController _speedPid;
     AnchorController _anchor;
+    AutoController _auto;
 };
 
 void applyCommand(const RemoteCommand &cmd, SystemState &sys, MainController &controller, ControlSource src);

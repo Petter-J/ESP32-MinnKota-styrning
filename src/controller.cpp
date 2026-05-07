@@ -11,6 +11,36 @@ static float speedPctToMps(float pct)
     return (clampedPct / 100.0f) * maxSpeedMps;
 }
 
+static bool autoCanUseGpsCourse(const SystemState &sys)
+{
+    return sys.sensors.gpsValid &&
+           sys.sensors.speedValid &&
+           sys.sensors.speedMps >= AutoConfig::MIN_GPS_COURSE_SPEED_MPS;
+}
+
+static float getAutoCourseHeadingDeg(const SystemState &sys)
+{
+    if (AutoConfig::BENCH_TEST_AUTO_WITHOUT_GPS)
+        return sys.sensors.motorHeadingDeg;
+
+    return sys.sensors.courseOverGroundDeg;
+}
+
+static ActuatorCommand exitAutoToManual(SystemState &sys, MainController &controller)
+{
+    sys.mode = SystemMode::MANUAL;
+    controller.onModeChanged(SystemMode::MANUAL, sys);
+
+    ActuatorCommand out;
+    out.thrustPct = clampf(
+        sys.manualThrustPct,
+        Limits::THRUST_MIN_PCT,
+        Limits::THRUST_MAX_PCT);
+
+    out.steerPct = 0.0f;
+    return out;
+}
+
 void PidController::setTunings(float kp, float ki, float kd)
 {
     _kp = kp;
@@ -75,6 +105,8 @@ void MainController::begin()
         ControlDefaults::SPEED_KI,
         ControlDefaults::SPEED_KD);
     _speedPid.setOutputLimits(0.0f, 100.0f);
+
+    _auto.begin();  
 }
 
 void MainController::onModeChanged(SystemMode newMode, SystemState &sys)
@@ -159,6 +191,8 @@ ActuatorCommand MainController::computeManual(const SystemState &sys)
     return out;
 }
 
+
+
 ActuatorCommand MainController::computeAuto(float dtSec, SystemState &sys)
 {
     ActuatorCommand out;
@@ -167,8 +201,7 @@ ActuatorCommand MainController::computeAuto(float dtSec, SystemState &sys)
     const float currentSpeedMps = sys.sensors.speedMps;
 
     if (!AutoConfig::BENCH_TEST_AUTO_WITHOUT_GPS &&
-        (!sys.sensors.speedValid ||
-         currentSpeedMps < AutoConfig::MIN_GPS_COURSE_SPEED_MPS))
+        !autoCanUseGpsCourse(sys))
     {
         strcpy(sys.sensors.autoState, "LOW SPD");
 
@@ -184,20 +217,7 @@ ActuatorCommand MainController::computeAuto(float dtSec, SystemState &sys)
         return out;
     }
 
-    if (!AutoConfig::BENCH_TEST_AUTO_WITHOUT_GPS &&
-        (!sys.sensors.gpsValid || !sys.sensors.speedValid))
-
-    {
-        strcpy(sys.sensors.autoState, "WAIT");
-        out.steerPct = 0.0f;
-        out.thrustPct = 0.0f;
-        return out;
-    }
-
-    const float currentHeadingDeg =
-        AutoConfig::BENCH_TEST_AUTO_WITHOUT_GPS
-            ? sys.sensors.motorHeadingDeg
-            : sys.sensors.courseOverGroundDeg;
+    const float currentHeadingDeg = getAutoCourseHeadingDeg(sys);
     float headingError = shortestAngleErrorDeg(sys.targetHeadingDeg, currentHeadingDeg);
     float steerCmd = _headingPid.update(headingError, dtSec);
 
