@@ -191,44 +191,9 @@ ActuatorCommand MainController::computeManual(const SystemState &sys)
     return out;
 }
 
-
-
 ActuatorCommand MainController::computeAuto(float dtSec, SystemState &sys)
 {
-    ActuatorCommand out;
-    strcpy(sys.sensors.autoState, "RUN");
-
-    const float currentSpeedMps = sys.sensors.speedMps;
-
-    if (!AutoConfig::BENCH_TEST_AUTO_WITHOUT_GPS &&
-        !autoCanUseGpsCourse(sys))
-    {
-        strcpy(sys.sensors.autoState, "LOW SPD");
-
-        sys.mode = SystemMode::MANUAL;
-        onModeChanged(SystemMode::MANUAL, sys);
-
-        out.thrustPct = clampf(
-            sys.manualThrustPct,
-            Limits::THRUST_MIN_PCT,
-            Limits::THRUST_MAX_PCT);
-
-        out.steerPct = 0.0f;
-        return out;
-    }
-
-    const float currentHeadingDeg = getAutoCourseHeadingDeg(sys);
-    float headingError = shortestAngleErrorDeg(sys.targetHeadingDeg, currentHeadingDeg);
-    float steerCmd = _headingPid.update(headingError, dtSec);
-
-    const float targetSpeedMps = speedPctToMps(sys.targetSpeedPct);
-    float speedError = targetSpeedMps - currentSpeedMps;
-    float thrustCmd = _speedPid.update(speedError, dtSec);
-
-    out.steerPct = clampf(steerCmd, Limits::STEER_MIN_PCT, Limits::STEER_MAX_PCT);
-    out.thrustPct = clampf(thrustCmd, Limits::THRUST_MIN_PCT, Limits::THRUST_MAX_PCT);
-
-    return out;
+    return _auto.update(dtSec, sys, _headingPid, _speedPid);
 }
 
 ActuatorCommand MainController::computeAnchor(float dtSec, SystemState &sys)
