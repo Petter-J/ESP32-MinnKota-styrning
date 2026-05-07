@@ -24,6 +24,55 @@ static float speedPctToMps(float pct)
     return (clampedPct / 100.0f) * AutoConfig::MAX_SPEED_MPS;
 }
 
+static ActuatorCommand makeManualFallbackCommand(SystemState &sys)
+{
+    sys.mode = SystemMode::MANUAL;
+
+    ActuatorCommand out;
+    out.thrustPct = clampf(
+        sys.manualThrustPct,
+        Limits::THRUST_MIN_PCT,
+        Limits::THRUST_MAX_PCT);
+
+    out.steerPct = 0.0f;
+    return out;
+}
+
+static float computeSpeedThrustPct(
+    float targetSpeedPct,
+    float currentSpeedMps,
+    PidController &speedPid,
+    float dtSec)
+{
+    const float targetSpeedMps = speedPctToMps(targetSpeedPct);
+    const float speedError = targetSpeedMps - currentSpeedMps;
+
+    const float thrustCmd = speedPid.update(speedError, dtSec);
+
+    return clampf(
+        thrustCmd,
+        Limits::THRUST_MIN_PCT,
+        Limits::THRUST_MAX_PCT);
+}
+
+static float computeHeadingSteerPct(
+    float targetHeadingDeg,
+    float currentHeadingDeg,
+    PidController &headingPid,
+    float dtSec)
+{
+    const float headingError =
+        shortestAngleErrorDeg(targetHeadingDeg, currentHeadingDeg);
+
+    const float steerCmd =
+        headingPid.update(headingError, dtSec);
+
+    return clampf(
+        steerCmd,
+        Limits::STEER_MIN_PCT,
+        Limits::STEER_MAX_PCT);
+}
+
 void AutoController::begin()
 {
 }
@@ -41,38 +90,26 @@ ActuatorCommand AutoController::update(
 
     if (!AutoConfig::BENCH_TEST_AUTO_WITHOUT_GPS &&
         !autoCanUseGpsCourse(sys))
-
     {
         strcpy(sys.sensors.autoState, "LOW SPD");
-
-        sys.mode = SystemMode::MANUAL;
-
-        out.thrustPct = clampf(
-            sys.manualThrustPct,
-            Limits::THRUST_MIN_PCT,
-            Limits::THRUST_MAX_PCT);
-
-        out.steerPct = 0.0f;
-        return out;
+        return makeManualFallbackCommand(sys);
     }
 
     const float currentHeadingDeg = getAutoCourseHeadingDeg(sys);
 
-    float headingError =
-        shortestAngleErrorDeg(sys.targetHeadingDeg, currentHeadingDeg);
-
-    float steerCmd = headingPid.update(headingError, dtSec);
-
-    const float targetSpeedMps = speedPctToMps(sys.targetSpeedPct);
-
-    float speedError = targetSpeedMps - currentSpeedMps;
-    float thrustCmd = speedPid.update(speedError, dtSec);
-
     out.steerPct =
-        clampf(steerCmd, Limits::STEER_MIN_PCT, Limits::STEER_MAX_PCT);
+        computeHeadingSteerPct(
+            sys.targetHeadingDeg,
+            currentHeadingDeg,
+            headingPid,
+            dtSec);
 
     out.thrustPct =
-        clampf(thrustCmd, Limits::THRUST_MIN_PCT, Limits::THRUST_MAX_PCT);
+        computeSpeedThrustPct(
+            sys.targetSpeedPct,
+            currentSpeedMps,
+            speedPid,
+            dtSec);
 
     return out;
 }

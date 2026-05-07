@@ -2,44 +2,7 @@
 #include "config.h"
 #include <cstring>
 #include <math.h>
-#include <string.h>
 
-static float speedPctToMps(float pct)
-{
-    const float maxSpeedMps = AutoConfig::MAX_SPEED_MPS;
-    const float clampedPct = clampf(pct, 0.0f, 100.0f);
-    return (clampedPct / 100.0f) * maxSpeedMps;
-}
-
-static bool autoCanUseGpsCourse(const SystemState &sys)
-{
-    return sys.sensors.gpsValid &&
-           sys.sensors.speedValid &&
-           sys.sensors.speedMps >= AutoConfig::MIN_GPS_COURSE_SPEED_MPS;
-}
-
-static float getAutoCourseHeadingDeg(const SystemState &sys)
-{
-    if (AutoConfig::BENCH_TEST_AUTO_WITHOUT_GPS)
-        return sys.sensors.motorHeadingDeg;
-
-    return sys.sensors.courseOverGroundDeg;
-}
-
-static ActuatorCommand exitAutoToManual(SystemState &sys, MainController &controller)
-{
-    sys.mode = SystemMode::MANUAL;
-    controller.onModeChanged(SystemMode::MANUAL, sys);
-
-    ActuatorCommand out;
-    out.thrustPct = clampf(
-        sys.manualThrustPct,
-        Limits::THRUST_MIN_PCT,
-        Limits::THRUST_MAX_PCT);
-
-    out.steerPct = 0.0f;
-    return out;
-}
 
 void PidController::setTunings(float kp, float ki, float kd)
 {
