@@ -180,16 +180,37 @@ static void printTelemetry(const SystemState &sys)
 void setup()
 {
     Serial.begin(115200);
-delay(1500);
-
-for (int i = 0; i < 5; i++)
-{
-    Serial.print("MAIN MAC: ");
-    Serial.println(WiFi.macAddress());
     delay(500);
-}
 
     pinMode(ButtonPins::STOP, INPUT_PULLUP);
+
+    const uint32_t bootStartMs = millis();
+    bool forceOta = false;
+
+    while (millis() - bootStartMs < 5000)
+    {
+        if (digitalRead(ButtonPins::STOP) == LOW)
+        {
+            forceOta = true;
+            break;
+        }
+
+        delay(10);
+    }
+
+    if (forceOta)
+    {
+        
+        ota_begin();
+
+        while (true)
+        {
+            ota_handle();
+            delay(10);
+        }
+    }
+
+
     pinMode(ButtonPins::MODE_MANUAL, INPUT_PULLUP);
     pinMode(ButtonPins::MODE_AUTO, INPUT_PULLUP);
     pinMode(ButtonPins::MODE_ANCHOR, INPUT_PULLUP);
@@ -205,15 +226,7 @@ for (int i = 0; i < 5; i++)
     DBG_PRINTLN("ESP32 Trolling Motor Controller - Boot");
     DBG_PRINTLN("=======================================");
 
-    gMotors.begin();
-    gController.begin();
-    gRemote.begin();
-    gButtons.begin();
-    gInputLogic.begin();
-    gNavigation.begin();
-    gCalibration.begin();
-    
-
+    // init safe state först
     gSys.mode = SystemMode::STOP;
     gSys.motorsEnabled = true;
     gSys.targetHeadingDeg = 0.0f;
@@ -222,6 +235,15 @@ for (int i = 0; i < 5; i++)
     gSys.manualSteerPct = 0.0f;
     gSys.actuators = {};
     gSys.lastCommandTimeMs = millis();
+
+    // sedan begin
+    gMotors.begin();
+    gController.begin();
+    gRemote.begin();
+    gButtons.begin();
+    gInputLogic.begin();
+    gNavigation.begin();
+    gCalibration.begin();
 
     DBG_PRINTLN("Buttons active, serial control removed.");
 }
@@ -269,6 +291,18 @@ void loop()
 
     ota_handle();
 
+    
+
+        // Main loop pacing
+    if (now - lastMainMs < TimingConfig::MAIN_LOOP_INTERVAL_MS)
+    {
+        return;
+    }
+    lastMainMs = now;
+
+    // 0. Update sensors first
+    gNavigation.update(gSys.sensors);
+
     float remoteBoatHeadingDeg = 0.0f;
 
     if (gRemote.getBoatHeading(remoteBoatHeadingDeg, now))
@@ -280,16 +314,6 @@ void loop()
     {
         gSys.sensors.boatImuValid = false;
     }
-
-        // Main loop pacing
-    if (now - lastMainMs < TimingConfig::MAIN_LOOP_INTERVAL_MS)
-    {
-        return;
-    }
-    lastMainMs = now;
-
-    // 0. Update sensors first
-    gNavigation.update(gSys.sensors);
 
     // 0.5 Calibration sweep update
     gCalibration.update(

@@ -9,7 +9,6 @@ class NavFusion
 public:
     void update(
         const GpsFix &gps,
-        const ImuHeading &motorImu,
-        const ImuHeading &boatImu,
+        const ImuHeading &imu,
         SensorData &out);
 };

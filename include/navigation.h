@@ -13,9 +13,6 @@ public:
 
 private:
     GpsSensor _gps;
-
-    ImuSensor _motorImu;
-    ImuSensor _boatImu;
-
+    ImuSensor _imu;
     NavFusion _fusion;
 };

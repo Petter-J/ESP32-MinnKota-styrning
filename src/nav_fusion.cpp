@@ -4,18 +4,15 @@
 
 void NavFusion::update(
     const GpsFix &gps,
-    const ImuHeading &motorImu,
-    const ImuHeading &boatImu,
+    const ImuHeading &imu,
     SensorData &s)
 {
-    // reset varje cykel
     s.headingValid = false;
     s.gpsValid = false;
     s.speedValid = false;
 
     strcpy(s.headingSource, "NONE");
 
-    // GPS
     s.gpsValid = gps.locationValid;
     s.speedValid = gps.speedValid;
 
@@ -40,36 +37,22 @@ void NavFusion::update(
     }
 
     if (gps.courseValid)
-    {
         s.courseOverGroundDeg = gps.courseDeg;
-    }
     else
-    {
         s.courseOverGroundDeg = 0.0f;
-    }
 
-    // Speed -> percentage
     const float maxSpeedMps = AutoConfig::MAX_SPEED_MPS;
     const float minSpeedThreshold = 0.3f;
 
     float speed = s.speedMps;
-
     if (speed < minSpeedThreshold)
-    {
         speed = 0.0f;
-    }
 
     float pct = (speed / maxSpeedMps) * 100.0f;
-
-    if (pct < 0.0f)
-        pct = 0.0f;
-    if (pct > 100.0f)
-        pct = 100.0f;
+    pct = clampf(pct, 0.0f, 100.0f);
 
     s.speedPct = pct;
-    
 
-    // Heading selection
     static bool useGpsHeading = false;
 
     const float enterGpsSpeed = 0.6f;
@@ -78,24 +61,20 @@ void NavFusion::update(
     if (gps.speedValid)
     {
         if (!useGpsHeading && gps.speedMps >= enterGpsSpeed)
-        {
             useGpsHeading = true;
-        }
         else if (useGpsHeading && gps.speedMps <= leaveGpsSpeed)
-        {
             useGpsHeading = false;
-        }
     }
     else
     {
         useGpsHeading = false;
     }
 
-    if (motorImu.valid)
+    if (imu.valid)
     {
-        s.motorHeadingDeg = motorImu.headingDeg;
-        s.motorPitchDeg = motorImu.pitchDeg;
-        s.motorRollDeg = motorImu.rollDeg;
+        s.motorHeadingDeg = imu.headingDeg;
+        s.motorPitchDeg = imu.pitchDeg;
+        s.motorRollDeg = imu.rollDeg;
         s.motorImuValid = true;
     }
     else
@@ -103,14 +82,16 @@ void NavFusion::update(
         s.motorImuValid = false;
     }
 
-    if (boatImu.valid)
+    if (s.motorImuValid && s.boatImuValid)
     {
-        s.boatHeadingDeg = boatImu.headingDeg;
-        s.boatImuValid = true;
+        s.motorAngleDeg =
+            shortestAngleErrorDeg(
+                s.motorHeadingDeg,
+                s.boatHeadingDeg);
     }
     else
     {
-        s.boatImuValid = false;
+        s.motorAngleDeg = 0.0f;
     }
 
     if (useGpsHeading && gps.courseValid)
@@ -119,22 +100,9 @@ void NavFusion::update(
         s.headingValid = true;
         strcpy(s.headingSource, "GPS");
     }
-    else if (motorImu.valid)
+    else if (imu.valid)
     {
-
-        if (s.boatImuValid)
-        {
-            s.motorAngleDeg =
-                shortestAngleErrorDeg(
-                    s.motorHeadingDeg,
-                    s.boatHeadingDeg);
-        }
-        else
-        {
-            s.motorAngleDeg = 0.0f;
-        }
-
-        s.headingDeg = motorImu.headingDeg;
+        s.headingDeg = imu.headingDeg;
         s.headingValid = true;
         strcpy(s.headingSource, "MIMU");
     }

@@ -11,62 +11,91 @@ static bool gOtaActive = false;
 static const char *OTA_SSID = "BoatControl-OTA";
 static const char *OTA_PASS = "12345678";
 
+static String otaPage()
+{
+    String html;
+
+    html += "<!doctype html><html><head>";
+    html += "<meta name='viewport' content='width=device-width, initial-scale=1'>";
+    html += "<title>ESP32 OTA</title>";
+    html += "</head><body>";
+
+    html += "<h2>ESP32 OTA Update</h2>";
+
+    html += "<p><b>AP SSID:</b> ";
+    html += OTA_SSID;
+    html += "</p>";
+
+    html += "<p><b>AP IP:</b> ";
+    html += WiFi.softAPIP().toString();
+    html += "</p>";
+
+    html += "<p><b>MAC:</b> ";
+    html += WiFi.macAddress();
+    html += "</p>";
+
+    html += "<form method='POST' action='/update' enctype='multipart/form-data'>";
+    html += "<input type='file' name='update'><br><br>";
+    html += "<input type='submit' value='Upload'>";
+    html += "</form>";
+
+    html += "</body></html>";
+
+    return html;
+}
+
 void ota_begin()
 {
+    if (gOtaActive)
+        return;
+
     WiFi.mode(WIFI_AP_STA);
     WiFi.softAP(OTA_SSID, OTA_PASS);
 
-    Serial.print("[OTA] AP IP: ");
-    Serial.println(WiFi.softAPIP());
-
     otaServer.on("/", HTTP_GET, []()
-                 { otaServer.send(200, "text/html",
-                                  "<h2>ESP32 OTA Update</h2>"
-                                  "<form method='POST' action='/update' enctype='multipart/form-data'>"
-                                  "<input type='file' name='update'>"
-                                  "<input type='submit' value='Upload'>"
-                                  "</form>"); });
+                 { otaServer.send(200, "text/html", otaPage()); });
 
-    otaServer.on("/update", HTTP_POST, []()
-                 {
-        otaServer.send(200, "text/plain", Update.hasError() ? "Update failed" : "Update OK. Rebooting...");
-        delay(1500);
-        ESP.restart(); }, []()
-                 {
-        HTTPUpload& upload = otaServer.upload();
+    otaServer.on(
+        "/update",
+        HTTP_POST,
+        []()
+        {
+            otaServer.send(
+                200,
+                "text/plain",
+                Update.hasError()
+                    ? "Update failed"
+                    : "Update OK. Rebooting...");
 
-        if (upload.status == UPLOAD_FILE_START)
+            delay(1500);
+            ESP.restart();
+        },
+        []()
         {
-            Serial.printf("[OTA] Start: %s\n", upload.filename.c_str());
-            Update.begin(UPDATE_SIZE_UNKNOWN);
-        }
-        else if (upload.status == UPLOAD_FILE_WRITE)
-        {
-            Update.write(upload.buf, upload.currentSize);
-        }
-        else if (upload.status == UPLOAD_FILE_END)
-        {
-            if (Update.end(true))
+            HTTPUpload &upload = otaServer.upload();
+
+            if (upload.status == UPLOAD_FILE_START)
             {
-                Serial.printf("[OTA] Success: %u bytes\n", upload.totalSize);
+                Update.begin(UPDATE_SIZE_UNKNOWN);
             }
-            else
+            else if (upload.status == UPLOAD_FILE_WRITE)
             {
-                Serial.println("[OTA] Failed");
+                Update.write(upload.buf, upload.currentSize);
             }
-        } });
+            else if (upload.status == UPLOAD_FILE_END)
+            {
+                Update.end(true);
+            }
+        });
 
     otaServer.begin();
     gOtaActive = true;
-    Serial.println("[OTA] server started");
 }
 
 void ota_handle()
 {
     if (!gOtaActive)
-    {
         return;
-    }
 
     otaServer.handleClient();
 }
