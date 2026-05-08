@@ -208,6 +208,13 @@ ActuatorCommand AnchorController::update(float dtSec, SystemState &sys, PidContr
 
     float thrustPct = mAnchorLearnedThrustPct;
 
+    const uint32_t outsideTimeMs = nowMs - mOutsideSinceMs;
+
+    if (outsideTimeMs < AnchorConfig::FAST_DRIFT_TIME_MS)
+    {
+        thrustPct += AnchorConfig::THRUST_ADJUST_STEP_PCT * 2.0f;
+    }
+
     if (distM >= fullThrustDistM)
     {
         thrustPct = maxAnchorThrustPct;
