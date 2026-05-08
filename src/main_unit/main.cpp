@@ -301,11 +301,11 @@ void loop()
     lastMainMs = now;
 
     // 0. Update sensors first
-    gNavigation.update(gSys.sensors);
-
     float remoteBoatHeadingDeg = 0.0f;
 
-    if (gRemote.getBoatHeading(remoteBoatHeadingDeg, now))
+    if (gRemote.getBoatHeading(remoteBoatHeadingDeg, now) &&
+        remoteBoatHeadingDeg >= 0.0f &&
+        remoteBoatHeadingDeg < 360.0f)
     {
         gSys.sensors.boatHeadingDeg = remoteBoatHeadingDeg;
         gSys.sensors.boatImuValid = true;
@@ -314,6 +314,8 @@ void loop()
     {
         gSys.sensors.boatImuValid = false;
     }
+
+    gNavigation.update(gSys.sensors);
 
     // 0.5 Calibration sweep update
     gCalibration.update(
@@ -468,14 +470,8 @@ void loop()
     pkt.targetSpeedCmps = (uint16_t)roundf(gSys.targetSpeedMps * 100.0f);
     pkt.gpsCogDeg10 = (uint16_t)roundf(gSys.sensors.courseOverGroundDeg * 10.0f);
 
-    if (gSys.sensors.boatImuValid)
-    {
-        pkt.headingDeg10 = (uint16_t)roundf(gSys.sensors.boatHeadingDeg * 10.0f);
-    }
-    else
-    {
-        pkt.headingDeg10 = 0;
-    }
+    pkt.boatHeadingDeg10 =
+        (uint16_t)roundf(gSys.sensors.boatHeadingDeg * 10.0f);
 
     if (gSys.sensors.motorImuValid)
     {

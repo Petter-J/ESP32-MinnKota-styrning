@@ -60,7 +60,9 @@ void display_update(
     bool calActive,
     bool calComplete,
     uint16_t calBucketMask,
-    uint8_t calPhase)
+    uint8_t calPhase,
+    bool localBoatHeadingValid,
+    float localBoatHeadingDeg)
 {
     if (!gDisplayAvailable)
         return;
@@ -87,7 +89,7 @@ void display_update(
     sys.manualThrustPct = status.manualThrustPct;
     sys.targetSpeedPct = status.targetSpeedPct;
     sys.targetHeadingDeg = status.targetHeadingDeg10 / 10.0f;
-    sys.sensors.headingDeg = status.headingDeg10 / 10.0f;
+    sys.sensors.boatHeadingDeg = status.boatHeadingDeg10 / 10.0f;
     sys.sensors.satellites = status.satellites;
 
     DisplayLines lines = buildDisplayLines(
@@ -124,8 +126,16 @@ void display_update(
 
         display.setCursor(0, 64);
         display.setTextSize(1);
-        display.print("SAT ");
-        display.print(status.satellites);
+
+        if (localBoatHeadingValid)
+        {
+            display.print("LBH ");
+            display.print(localBoatHeadingDeg, 1);
+        }
+        else
+        {
+            display.print("LBH ---");
+        }
     }
 
     display.setCursor(0, 80);

@@ -6,6 +6,7 @@
 #include "remote_protocol.h"
 #include "display.h"
 #include "remote_calibration.h"
+#include "config.h"
 
 // ============================================================
 // BUTTON IDS
@@ -233,8 +234,17 @@ void loop()
     static uint32_t lastButtonSendMs = 0;
     static uint32_t lastHeadingSendMs = 0;
     static uint32_t lastSentMask = 0;
+    static uint32_t lastMainMs = 0;
 
     const uint32_t now = millis();
+
+    if (now - lastMainMs < TimingConfig::REMOTE1_LOOP_INTERVAL_MS)
+    {
+        return;
+    }
+
+    lastMainMs = now;
+
     const uint32_t buttonMask = readButtons();
 
     if (gBoatImuStarted)
@@ -281,17 +291,17 @@ void loop()
         if (headingHeartbeat)
         {
             lastHeadingSendMs = now;
+        }
 
-            if (gBoatHeading.valid &&
-                isfinite(gBoatHeading.headingDeg) &&
-                gBoatHeading.headingDeg >= 0.0f &&
-                gBoatHeading.headingDeg < 360.0f)
-            {
-                pkt.boatHeadingDeg10 =
-                    (uint16_t)roundf(gBoatHeading.headingDeg * 10.0f);
+        if (gBoatHeading.valid &&
+            isfinite(gBoatHeading.headingDeg) &&
+            gBoatHeading.headingDeg >= 0.0f &&
+            gBoatHeading.headingDeg < 360.0f)
+        {
+            pkt.boatHeadingDeg10 =
+                (uint16_t)roundf(gBoatHeading.headingDeg * 10.0f);
 
-                pkt.boatFlags = REMOTE_FLAG_BOAT_IMU_VALID;
-            }
+            pkt.boatFlags = REMOTE_FLAG_BOAT_IMU_VALID;
         }
 
         esp_now_send(RECEIVER_MAC,
@@ -316,7 +326,9 @@ void loop()
             (gStatus.calFlags & STATUS_CAL_FLAG_ACTIVE) != 0,
             (gStatus.calFlags & STATUS_CAL_FLAG_COMPLETE) != 0,
             gStatus.calBucketMask,
-            gStatus.calPhase);
+            gStatus.calPhase,
+            gBoatHeading.valid,
+            gBoatHeading.headingDeg);
         }
 
     

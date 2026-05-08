@@ -61,7 +61,9 @@ void onEspNowRecv(const uint8_t *mac, const uint8_t *data, int len)
     {
         s_instance->setRemote1Mask(pkt.buttonMask, now);
 
-        if (boatImuValid)
+        if (boatImuValid &&
+            boatHeadingDeg >= 0.0f &&
+            boatHeadingDeg < 360.0f)
         {
             s_instance->_boatHeadingDeg = boatHeadingDeg;
             s_instance->_boatImuValid = true;

@@ -13,6 +13,8 @@ void display_update(
     bool calActive = false,
     bool calComplete = false,
     uint16_t calBucketMask = 0,
-    uint8_t calPhase = 0);
+    uint8_t calPhase = 0,
+    bool localBoatHeadingValid = false,
+    float localBoatHeadingDeg = 0.0f);
 
 void display_set_brightness(uint8_t value);

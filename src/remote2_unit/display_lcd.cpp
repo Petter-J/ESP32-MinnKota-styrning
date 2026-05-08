@@ -211,7 +211,7 @@ static void drawFooter(const StatusPacket &status, bool linkAlive, uint32_t butt
     tft.setTextColor(COLOR_WARN);
     tft.setCursor(45, 262);
     tft.print("BH");
-    tft.print(headingDisplayDeg(status.headingDeg10));
+    tft.print(headingDisplayDeg(status.boatHeadingDeg10));
 
     tft.fillRect(130, 255, 75, 25, COLOR_BG);
 
@@ -260,7 +260,7 @@ void display_lcd_update(
     static uint16_t lastTargetSpeedCmps = 65535;
     static uint16_t lastGpsSpeedCmps = 65535;
     static uint16_t lastGpsCogDeg10 = 65535;
-    static uint16_t lastHeadingDeg10 = 65535;
+    static uint16_t lastBoatHeadingDeg10 = 65535;
     static uint8_t lastMotorTiltUnsafe = 255;
     static int8_t lastSteerState = 99;
 
@@ -303,7 +303,7 @@ void display_lcd_update(
         status.satellites != lastSatellites ||
         status.satellitesInView != lastSatellitesInView ||
         status.flags != lastFlags ||
-        headingDisplayDeg(status.headingDeg10) != headingDisplayDeg(lastHeadingDeg10) ||
+        headingDisplayDeg(status.boatHeadingDeg10) != headingDisplayDeg(lastBoatHeadingDeg10) ||
         headingDisplayDeg(status.motorHeadingDeg10) != headingDisplayDeg(lastMotorHeadingDeg10);
 
     if (firstDraw)
@@ -509,7 +509,7 @@ void display_lcd_update(
     {
         if (modeChanged ||
             status.targetHeadingDeg10 != lastTargetHeadingDeg10 ||
-            status.headingDeg10 != lastHeadingDeg10)
+            status.boatHeadingDeg10 != lastBoatHeadingDeg10)
         {
             clearRow1();
 
@@ -517,7 +517,7 @@ void display_lcd_update(
             snprintf(line1, sizeof(line1),
                      "T%u | H%u",
                      status.targetHeadingDeg10 / 10,
-                     status.headingDeg10 / 10);
+                     status.boatHeadingDeg10 / 10);
 
             drawCenteredText(line1, 120, ROW1_Y + 15, 3, COLOR_AUTO);
         }
@@ -599,7 +599,7 @@ save_state:
     lastTargetSpeedCmps = status.targetSpeedCmps;
     lastGpsSpeedCmps = status.gpsSpeedCmps;
     lastGpsCogDeg10 = status.gpsCogDeg10;
-    lastHeadingDeg10 = status.headingDeg10;
+    lastBoatHeadingDeg10 = status.boatHeadingDeg10;
     lastMotorHeadingDeg10 = status.motorHeadingDeg10;
     lastMotorTiltUnsafe = status.motorTiltUnsafe;
     lastSteerState = status.steerState;
