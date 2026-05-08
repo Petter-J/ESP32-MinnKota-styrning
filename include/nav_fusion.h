@@ -7,5 +7,9 @@
 class NavFusion
 {
 public:
-    void update(const GpsFix &gps, const ImuHeading &imu, SensorData &out);
+    void update(
+        const GpsFix &gps,
+        const ImuHeading &motorImu,
+        const ImuHeading &boatImu,
+        SensorData &out);
 };

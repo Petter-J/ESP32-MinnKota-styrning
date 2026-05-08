@@ -13,6 +13,9 @@ public:
 
 private:
     GpsSensor _gps;
-    ImuSensor _imu;
-    NavFusion _fusion; // ✅ NY
+
+    ImuSensor _motorImu;
+    ImuSensor _boatImu;
+
+    NavFusion _fusion;
 };

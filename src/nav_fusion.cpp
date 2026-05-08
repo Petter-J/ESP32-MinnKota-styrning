@@ -2,7 +2,11 @@
 #include <cstring>
 #include "config.h"
 
-void NavFusion::update(const GpsFix &gps, const ImuHeading &imu, SensorData &s)
+void NavFusion::update(
+    const GpsFix &gps,
+    const ImuHeading &motorImu,
+    const ImuHeading &boatImu,
+    SensorData &s)
 {
     // reset varje cykel
     s.headingValid = false;
@@ -87,16 +91,26 @@ void NavFusion::update(const GpsFix &gps, const ImuHeading &imu, SensorData &s)
         useGpsHeading = false;
     }
 
-    if (imu.valid)
+    if (motorImu.valid)
     {
-        s.motorHeadingDeg = imu.headingDeg;
-        s.motorPitchDeg = imu.pitchDeg;
-        s.motorRollDeg = imu.rollDeg;
+        s.motorHeadingDeg = motorImu.headingDeg;
+        s.motorPitchDeg = motorImu.pitchDeg;
+        s.motorRollDeg = motorImu.rollDeg;
         s.motorImuValid = true;
     }
     else
     {
         s.motorImuValid = false;
+    }
+
+    if (boatImu.valid)
+    {
+        s.boatHeadingDeg = boatImu.headingDeg;
+        s.boatImuValid = true;
+    }
+    else
+    {
+        s.boatImuValid = false;
     }
 
     if (useGpsHeading && gps.courseValid)
@@ -105,7 +119,7 @@ void NavFusion::update(const GpsFix &gps, const ImuHeading &imu, SensorData &s)
         s.headingValid = true;
         strcpy(s.headingSource, "GPS");
     }
-    else if (imu.valid)
+    else if (motorImu.valid)
     {
 
         if (s.boatImuValid)
@@ -120,7 +134,7 @@ void NavFusion::update(const GpsFix &gps, const ImuHeading &imu, SensorData &s)
             s.motorAngleDeg = 0.0f;
         }
 
-        s.headingDeg = imu.headingDeg;
+        s.headingDeg = motorImu.headingDeg;
         s.headingValid = true;
         strcpy(s.headingSource, "MIMU");
     }
