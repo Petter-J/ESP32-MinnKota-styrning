@@ -33,6 +33,19 @@ namespace AnchorControlConfig
     static constexpr float MAX_ENTRY_THRUST_PCT = 30.0f;
 }
 
+namespace AnchorConfig
+{
+    static constexpr float START_THRUST_PCT = 5.0f;
+    static constexpr float MIN_THRUST_PCT = 2.0f;
+    static constexpr float MAX_THRUST_PCT = 25.0f;
+    static constexpr float RADIUS_M = 2.0f;
+    static constexpr float FULL_THRUST_DIST_M = 8.0f;
+    static constexpr uint32_t FAST_DRIFT_TIME_MS = 10000;
+    static constexpr uint32_t TARGET_RETURN_TIME_MS = 12000;
+
+    static constexpr float THRUST_ADJUST_STEP_PCT = 1.0f;
+}
+
 // ============================================================
 // BUTTONS
 // ============================================================

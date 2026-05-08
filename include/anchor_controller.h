@@ -18,6 +18,12 @@ private:
     uint8_t mGpsIndex = 0;
     uint8_t mGpsCount = 0;
 
+    bool mWasInsideRadius = true;
+    uint32_t mOutsideSinceMs = 0;
+    uint32_t mReturnStartMs = 0;
+
+    float mAnchorLearnedThrustPct = 5.0f;
+
     void resetGpsAverage();
 
     static float degToRad(float deg);

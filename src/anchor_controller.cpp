@@ -64,10 +64,25 @@ float AnchorController::bearingDeg(double lat1Deg, double lon1Deg, double lat2De
     return wrap360(radToDeg(atan2f(y, x)));
 }
 
+static float clampAnchorThrust(float thrustPct)
+{
+    return clampf(
+        thrustPct,
+        AnchorConfig::MIN_THRUST_PCT,
+        AnchorConfig::MAX_THRUST_PCT);
+}
+
 void AnchorController::onEnter(SystemState &sys)
 {
 
     resetGpsAverage();
+
+    mWasInsideRadius = true;
+    mOutsideSinceMs = 0;
+    mReturnStartMs = 0;
+    mAnchorLearnedThrustPct =
+        clampAnchorThrust(AnchorConfig::START_THRUST_PCT);
+
     // Om InputLogic redan har satt anchor från medelvärde,
     // skriv inte över den här.
     if (!sys.anchorActive)
@@ -102,10 +117,10 @@ ActuatorCommand AnchorController::update(float dtSec, SystemState &sys, PidContr
         return out;
     }
 
-    const float anchorRadiusM = 3.0f;
-    const float fullThrustDistM = 12.0f;
-    const float minAnchorThrustPct = 1.0f;
-    const float maxAnchorThrustPct = 45.0f;
+    const float anchorRadiusM = AnchorConfig::RADIUS_M;
+    const float fullThrustDistM = AnchorConfig::FULL_THRUST_DIST_M;
+    //const float minAnchorThrustPct = AnchorConfig::MIN_THRUST_PCT;
+    const float maxAnchorThrustPct = AnchorConfig::MAX_THRUST_PCT;
 
     mLatBuf[mGpsIndex] = sys.sensors.latitudeDeg;
     mLonBuf[mGpsIndex] = sys.sensors.longitudeDeg;
@@ -142,10 +157,41 @@ ActuatorCommand AnchorController::update(float dtSec, SystemState &sys, PidContr
 
     if (distM <= anchorRadiusM)
     {
+        const uint32_t nowMs = millis();
+
+        if (!mWasInsideRadius && mReturnStartMs != 0)
+        {
+            const uint32_t returnTimeMs = nowMs - mReturnStartMs;
+
+            if (returnTimeMs > AnchorConfig::TARGET_RETURN_TIME_MS)
+            {
+                mAnchorLearnedThrustPct += AnchorConfig::THRUST_ADJUST_STEP_PCT;
+            }
+            else if (returnTimeMs < AnchorConfig::TARGET_RETURN_TIME_MS / 2)
+            {
+                mAnchorLearnedThrustPct -= AnchorConfig::THRUST_ADJUST_STEP_PCT;
+            }
+
+            mAnchorLearnedThrustPct = clampAnchorThrust(mAnchorLearnedThrustPct);
+        }
+
+        mWasInsideRadius = true;
+        mOutsideSinceMs = 0;
+        mReturnStartMs = 0;
+
         strcpy(sys.sensors.autoState, "HOLD");
         out.thrustPct = 0.0f;
         out.steerPct = 0.0f;
         return out;
+    }
+
+    const uint32_t nowMs = millis();
+
+    if (mWasInsideRadius)
+    {
+        mWasInsideRadius = false;
+        mOutsideSinceMs = nowMs;
+        mReturnStartMs = nowMs;
     }
 
     const float targetBearingDeg = bearingDeg(
@@ -160,7 +206,7 @@ ActuatorCommand AnchorController::update(float dtSec, SystemState &sys, PidContr
     float steerCmd = headingPid.update(headingError, dtSec);
     out.steerPct = clampf(steerCmd, Limits::STEER_MIN_PCT, Limits::STEER_MAX_PCT);
 
-    float thrustPct = minAnchorThrustPct;
+    float thrustPct = mAnchorLearnedThrustPct;
 
     if (distM >= fullThrustDistM)
     {
@@ -169,7 +215,7 @@ ActuatorCommand AnchorController::update(float dtSec, SystemState &sys, PidContr
     else
     {
         const float t = (distM - anchorRadiusM) / (fullThrustDistM - anchorRadiusM);
-        thrustPct = minAnchorThrustPct + t * (maxAnchorThrustPct - minAnchorThrustPct);
+        thrustPct = mAnchorLearnedThrustPct + t * (maxAnchorThrustPct - mAnchorLearnedThrustPct);
     }
 
     const float absHeadingError = fabsf(headingError);
