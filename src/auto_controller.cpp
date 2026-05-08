@@ -45,6 +45,24 @@ float AutoController::filterCogDeg(float rawCogDeg)
     return _filteredCogDeg;
 }
 
+bool AutoController::updateSteerActive(float steerErrorDeg)
+{
+    const float absError = fabs(steerErrorDeg);
+
+    if (_steerActive)
+    {
+        if (absError <= AutoConfig::STEER_ERROR_STOP_DEG)
+            _steerActive = false;
+    }
+    else
+    {
+        if (absError >= AutoConfig::STEER_ERROR_START_DEG)
+            _steerActive = true;
+    }
+
+    return _steerActive;
+}
+
 static ActuatorCommand makeManualFallbackCommand(SystemState &sys)
 {
     sys.mode = SystemMode::MANUAL;
@@ -98,6 +116,8 @@ void AutoController::begin()
 {
     _cogFilterInitialized = false;
     _filteredCogDeg = 0.0f;
+
+    _steerActive = false;
 }
 
 ActuatorCommand AutoController::update(

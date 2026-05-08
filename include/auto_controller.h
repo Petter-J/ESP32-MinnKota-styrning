@@ -18,6 +18,8 @@ public:
 private:
     bool _cogFilterInitialized = false;
     float _filteredCogDeg = 0.0f;
+    bool _steerActive = false;
+    bool updateSteerActive(float steerErrorDeg);
     float filterCogDeg(float rawCogDeg);
     float getAutoCourseHeadingDeg(const SystemState &sys);
 };

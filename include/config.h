@@ -122,11 +122,13 @@ namespace AutoConfig
     static constexpr float MIN_GPS_COURSE_SPEED_MPS = 0.5f;
     static constexpr float START_THRUST_PCT = 20.0f;
     static constexpr float MAX_SPEED_MPS = 2.5f;
-
     static constexpr bool BENCH_TEST_AUTO_WITHOUT_GPS = true;
-
     static constexpr float COG_FILTER_ALPHA = 0.2f;
     static constexpr float COG_MAX_JUMP_DEG = 25.0f;
+    static constexpr float MAX_STEER_OFFSET_DEG = 15.0f;
+    static constexpr float STEER_ERROR_START_DEG = 0.8f;
+    static constexpr float STEER_ERROR_STOP_DEG = 0.4f;
+    static constexpr float AUTO_STEER_EXTRA_DEG = 2.0f;
 }
 
 // ============================================================
