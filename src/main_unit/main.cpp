@@ -10,6 +10,7 @@
 #include "navigation.h"
 #include "ota_update.h"
 #include "calibration_manager.h"
+#include <cstring>
 
 // ============================================================
 // Globals
@@ -494,7 +495,34 @@ void loop()
         pkt.flags |= STATUS_FLAG_OTA_ACTIVE;
     }
 
-    pkt.counter = (uint8_t)(remoteMask & 0xFF);
+    if (gSys.mode != SystemMode::ANCHOR)
+    {
+        pkt.counter = 0;
+    }
+    else if (strcmp(gSys.sensors.autoState, "A_WAIT") == 0)
+        pkt.counter = 1;
+    else if (strcmp(gSys.sensors.autoState, "A_GPSAVG") == 0)
+        pkt.counter = 2;
+    else if (strcmp(gSys.sensors.autoState, "L_HOLD") == 0)
+        pkt.counter = 3;
+    else if (strcmp(gSys.sensors.autoState, "L_DRIFT") == 0)
+        pkt.counter = 4;
+    else if (strcmp(gSys.sensors.autoState, "LEARN_RET") == 0)
+        pkt.counter = 5;
+    else if (strcmp(gSys.sensors.autoState, "HOLD") == 0)
+        pkt.counter = 6;
+    else if (strcmp(gSys.sensors.autoState, "DRIFT") == 0)
+        pkt.counter = 7;
+    else if (strcmp(gSys.sensors.autoState, "RETURN") == 0)
+        pkt.counter = 8;
+    else if (strcmp(gSys.sensors.autoState, "M_HOLD") == 0)
+        pkt.counter = 9;
+    else if (strcmp(gSys.sensors.autoState, "MAINTAIN") == 0)
+        pkt.counter = 10;
+    else if (strcmp(gSys.sensors.autoState, "M_RETURN") == 0)
+        pkt.counter = 11;
+    else
+        pkt.counter = 0;
 
     pkt.calFlags = 0;
 

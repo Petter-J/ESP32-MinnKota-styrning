@@ -20,7 +20,8 @@ void InputLogic::applyButtons(
     MainController &controller)
 {
     // 🔥 Anchor GPS sampling while holding button
-    if (btn.anchorHeld && sys.sensors.gpsValid)
+    if (btn.anchorHeld &&
+        sys.sensors.gpsValid)
     {
         if (!_anchorCollecting)
         {
@@ -30,9 +31,13 @@ void InputLogic::applyButtons(
             _anchorCount = 0;
         }
 
-        _anchorSumLat += sys.sensors.latitudeDeg;
-        _anchorSumLon += sys.sensors.longitudeDeg;
-        _anchorCount++;
+        // Bara när GPS faktiskt har ny position
+        if (sys.sensors.locationUpdated)
+        {
+            _anchorSumLat += sys.sensors.latitudeDeg;
+            _anchorSumLon += sys.sensors.longitudeDeg;
+            _anchorCount++;
+        }
     }
     else
     {
@@ -131,16 +136,21 @@ void InputLogic::applySafety(
     if (!SafetyConfig::ENABLE_SENSOR_MODE_SAFETY)
         return;
 
-    const bool sensorsOk =
+    const bool autoSensorsOk =
         sys.sensors.gpsValid &&
-        sys.sensors.headingValid;
+        sys.sensors.speedValid &&
+        sys.sensors.boatImuValid;
+
+    const bool anchorSensorsOk =
+        sys.sensors.gpsValid &&
+        sys.sensors.motorImuValid;
 
     // =========================
     // AUTO
     // =========================
     if (sys.mode == SystemMode::AUTO)
     {
-        if (sensorsOk)
+        if (autoSensorsOk)
         {
             _lastValidAutoSensorMs = nowMs;
             return;
@@ -163,7 +173,7 @@ void InputLogic::applySafety(
     // =========================
     else if (sys.mode == SystemMode::ANCHOR)
     {
-        if (sensorsOk)
+        if (anchorSensorsOk)
         {
             _lastValidAnchorSensorMs = nowMs;
             return;
@@ -200,6 +210,8 @@ void InputLogic::setMode(
         _anchorSumLat = 0.0f;
         _anchorSumLon = 0.0f;
         _anchorCount = 0;
+
+        sys.anchorActive = false;
     }
 
     // Specialfall: AUTO -> MANUAL, ta över aktuell thrust
@@ -283,6 +295,7 @@ void InputLogic::handleModeButtons(
         {
             if (!sys.sensors.gpsValid ||
                 !sys.sensors.speedValid ||
+                !sys.sensors.courseValid ||
                 sys.sensors.gpsSpeedMps < AutoConfig::MIN_GPS_COURSE_SPEED_MPS)
             {
                 return;

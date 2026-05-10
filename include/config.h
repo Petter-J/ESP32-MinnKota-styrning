@@ -25,6 +25,8 @@ namespace AutoControlConfig
     
 }
 
+
+
 // ============================================================
 // ANCHOR CONTROL
 // ============================================================
@@ -35,18 +37,62 @@ namespace AnchorControlConfig
 
 namespace AnchorConfig
 {
-    static constexpr float START_RADIUS_M = 2.0f;
-    static constexpr float STOP_RADIUS_M = 0.75f;
-    static constexpr float HEADING_DEADBAND_DEG = 2.0f;
+    // --------------------------------------------------------
+    // Radius logic
+    // --------------------------------------------------------
+    static constexpr float STOP_RADIUS_M = 1.0f;       // Motor OFF innanför denna
+    static constexpr float START_RADIUS_M = 2.0f;       // Normal ON
+    static constexpr float LEARN_START_RADIUS_M = 2.5f; // Learning ON
+
+    // --------------------------------------------------------
+    // Steering
+    // --------------------------------------------------------
+    static constexpr float HEADING_DEADBAND_DEG = 3.0f;
+
+    // --------------------------------------------------------
+    // Base thrust
+    // --------------------------------------------------------
     static constexpr float START_THRUST_PCT = 5.0f;
     static constexpr float MIN_THRUST_PCT = 2.0f;
     static constexpr float MAX_THRUST_PCT = 25.0f;
-    static constexpr float FULL_THRUST_DIST_M = 8.0f;
-    static constexpr uint32_t FAST_DRIFT_TIME_MS = 10000;
-    static constexpr uint32_t TARGET_RETURN_TIME_MS = 12000;
-    static constexpr float THRUST_ADJUST_STEP_PCT = 1.0f;
-}
 
+    // Distans där full thrust används
+    static constexpr float FULL_THRUST_DIST_M = 8.0f;
+
+    // --------------------------------------------------------
+    // Learning mode
+    // --------------------------------------------------------
+    // Antal driftmätningar innan mode väljs
+    static constexpr uint8_t DRIFT_LEARN_SAMPLES = 5;
+
+    // Önskad tid från STOP_RADIUS -> LEARN_START_RADIUS
+    static constexpr uint32_t TARGET_DRIFT_TIME_MS = 10000;
+
+    // Dödzon så thrust inte ändras för små variationer
+    static constexpr uint32_t DRIFT_TIME_DEADBAND_MS = 2000;
+
+    // --------------------------------------------------------
+    // Return thrust learning
+    // --------------------------------------------------------
+    // Önskad tid från START_RADIUS -> STOP_RADIUS
+    static constexpr uint32_t TARGET_RETURN_TIME_MS = 12000;
+
+    // Dödzon för return thrust-justering
+    static constexpr uint32_t RETURN_TIME_DEADBAND_MS = 2000;
+
+    // Hur mycket thrust justeras per steg
+    static constexpr float THRUST_ADJUST_STEP_PCT = 1.0f;
+
+    // --------------------------------------------------------
+    // Maintenance mode
+    // --------------------------------------------------------
+    // % av learned thrust i maintenance-zon
+    static constexpr float MAINTENANCE_FACTOR = 0.35f;
+
+    // Begränsningar för maintenance thrust
+    static constexpr float MIN_MAINTENANCE_THRUST_PCT = 2.0f;
+    static constexpr float MAX_MAINTENANCE_THRUST_PCT = 10.0f;
+}
 // ============================================================
 // BUTTONS
 // ============================================================
@@ -134,7 +180,7 @@ namespace MotorConfig
 // ============================================================
 namespace AutoConfig
 {
-    static constexpr float MIN_GPS_COURSE_SPEED_MPS = 0.5f;
+    static constexpr float MIN_GPS_COURSE_SPEED_MPS = 0.3f;
     static constexpr float START_THRUST_PCT = 20.0f;
     static constexpr float MAX_SPEED_MPS = 2.5f;
     static constexpr bool BENCH_TEST_AUTO_WITHOUT_GPS = false;

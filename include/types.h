@@ -80,7 +80,7 @@ struct SensorData
 
         float gpsSpeedMps = 0.0f;
         float courseOverGroundDeg = 0.0f;
-
+        bool courseValid = false;
         int satellites = 0;
         int satellitesInView = 0;
 
