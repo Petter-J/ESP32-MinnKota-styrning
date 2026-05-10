@@ -187,12 +187,12 @@ static void drawFooter(const StatusPacket &status, bool linkAlive, uint32_t butt
     
 
     tft.setTextSize(2);
-    tft.setTextColor(COLOR_DIM);
+    tft.setTextColor(COLOR_WARN);
     tft.setCursor(10, 230);
-    tft.print("S ");
-    tft.print(status.satellites);
-    tft.print("/");
-    tft.print(status.satellitesInView);
+   // tft.print("S ");
+    tft.print(status.counter);
+    // tft.print("/");
+    // tft.print(status.satellitesInView);
 
     const bool gpsOk = linkAlive && ((status.flags & STATUS_FLAG_GPS_VALID) != 0);
 

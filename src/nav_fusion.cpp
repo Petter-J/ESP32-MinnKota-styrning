@@ -14,6 +14,7 @@ void NavFusion::update(
     strcpy(s.headingSource, "NONE");
 
     s.gpsValid = gps.locationValid;
+    s.locationUpdated = gps.locationUpdated;
     s.speedValid = gps.speedValid;
 
     if (gps.locationValid)
@@ -82,7 +83,20 @@ void NavFusion::update(
         s.motorImuValid = false;
     }
 
-    if (s.motorImuValid && s.boatImuValid)
+    static uint32_t lastBoatImuValidMs = 0;
+    const uint32_t nowMs = millis();
+
+    if (s.boatImuValid)
+    {
+        lastBoatImuValidMs = nowMs;
+    }
+
+    const bool boatImuUsable =
+        s.boatImuValid ||
+        ((uint32_t)(nowMs - lastBoatImuValidMs) <
+         BoatCompassConfig::BOAT_HEADING_HOLD_MS);
+
+    if (s.motorImuValid && boatImuUsable)
     {
         s.motorAngleDeg =
             shortestAngleErrorDeg(
@@ -100,9 +114,15 @@ void NavFusion::update(
         s.headingValid = true;
         strcpy(s.headingSource, "GPS");
     }
-    else if (imu.valid)
+    else if (boatImuUsable)
     {
-        s.headingDeg = imu.headingDeg;
+        s.headingDeg = s.boatHeadingDeg;
+        s.headingValid = true;
+        strcpy(s.headingSource, "BIMU");
+    }
+    else if (s.motorImuValid)
+    {
+        s.headingDeg = s.motorHeadingDeg;
         s.headingValid = true;
         strcpy(s.headingSource, "MIMU");
     }

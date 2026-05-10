@@ -8,7 +8,7 @@ namespace ManualControlConfig
 {
     static constexpr float THRUST_START_MIN_PCT = 20.0f;
     static constexpr float THRUST_STEP_PCT = 5.0f;
-    static constexpr uint32_t REPEAT_MS = 120;
+    static constexpr uint32_t REPEAT_MS = 200;
 
     static constexpr float STEER_JOG_PCT = 100.0f; // max pwm
 }
@@ -35,14 +35,15 @@ namespace AnchorControlConfig
 
 namespace AnchorConfig
 {
+    static constexpr float START_RADIUS_M = 2.0f;
+    static constexpr float STOP_RADIUS_M = 0.75f;
+    static constexpr float HEADING_DEADBAND_DEG = 2.0f;
     static constexpr float START_THRUST_PCT = 5.0f;
     static constexpr float MIN_THRUST_PCT = 2.0f;
     static constexpr float MAX_THRUST_PCT = 25.0f;
-    static constexpr float RADIUS_M = 2.0f;
     static constexpr float FULL_THRUST_DIST_M = 8.0f;
     static constexpr uint32_t FAST_DRIFT_TIME_MS = 10000;
     static constexpr uint32_t TARGET_RETURN_TIME_MS = 12000;
-
     static constexpr float THRUST_ADJUST_STEP_PCT = 1.0f;
 }
 
@@ -107,6 +108,7 @@ namespace BoatCompassConfig
     static constexpr uint32_t FREQ_HZ = 100000;
 
     static constexpr float B_HEADING_OFFSET_DEG = 0.0f;
+    static constexpr uint32_t BOAT_HEADING_HOLD_MS = 400;
 }
 
 // ============================================================
@@ -135,7 +137,7 @@ namespace AutoConfig
     static constexpr float MIN_GPS_COURSE_SPEED_MPS = 0.5f;
     static constexpr float START_THRUST_PCT = 20.0f;
     static constexpr float MAX_SPEED_MPS = 2.5f;
-    static constexpr bool BENCH_TEST_AUTO_WITHOUT_GPS = true;
+    static constexpr bool BENCH_TEST_AUTO_WITHOUT_GPS = false;
     static constexpr float COG_FILTER_ALPHA = 0.2f;
     static constexpr float COG_MAX_JUMP_DEG = 25.0f;
     static constexpr float MAX_STEER_OFFSET_DEG = 15.0f;

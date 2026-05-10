@@ -11,6 +11,7 @@ struct GpsFix
 
     double latDeg = 0.0;
     double lonDeg = 0.0;
+    bool locationUpdated = false;
     float speedMps = 0.0f;
     float courseDeg = 0.0f;
     uint8_t satellites = 0;

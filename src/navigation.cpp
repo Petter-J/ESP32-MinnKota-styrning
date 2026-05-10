@@ -21,11 +21,19 @@ bool Navigation::begin()
 
 void Navigation::update(SensorData &sensors)
 {
-    GpsFix gpsFix{};
-    ImuHeading motorImuHeading{};
+    static GpsFix gpsFix{};
+    static ImuHeading motorImuHeading{};
+    static uint32_t lastMotorImuUpdateMs = 0;
+
+    const uint32_t now = millis();
 
     _gps.update(gpsFix);
-    _imu.update(motorImuHeading);
+
+    if (now - lastMotorImuUpdateMs >= 20)
+    {
+        lastMotorImuUpdateMs = now;
+        _imu.update(motorImuHeading);
+    }
 
     _fusion.update(
         gpsFix,

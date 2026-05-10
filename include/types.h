@@ -87,7 +87,7 @@ struct SensorData
         bool headingValid = true;
         bool speedValid = true;
         bool gpsValid = false;
-
+        bool locationUpdated = false;
         char headingSource[5] = "NONE";
         char autoState[10] = "NONE";
     };

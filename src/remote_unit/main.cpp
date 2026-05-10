@@ -274,10 +274,9 @@ void loop()
 
     // Skicka knappar + boat heading
     const bool changed = (buttonMask != lastSentMask);
-    const bool buttonHeartbeat = (now - lastButtonSendMs >= 50);
-    const bool headingHeartbeat = (now - lastHeadingSendMs >= 200);
+    const bool heartbeat = (now - lastButtonSendMs >= 50);
 
-    if (changed || buttonHeartbeat || headingHeartbeat)
+    if (changed || heartbeat)
     {
         lastButtonSendMs = now;
         lastSentMask = buttonMask;
@@ -287,11 +286,6 @@ void loop()
 
         pkt.boatHeadingDeg10 = 0;
         pkt.boatFlags = 0;
-
-        if (headingHeartbeat)
-        {
-            lastHeadingSendMs = now;
-        }
 
         if (gBoatHeading.valid &&
             isfinite(gBoatHeading.headingDeg) &&

@@ -73,7 +73,12 @@ float AutoController::getAutoCourseHeadingDeg(const SystemState &sys)
     if (AutoConfig::BENCH_TEST_AUTO_WITHOUT_GPS)
         return sys.sensors.motorHeadingDeg;
 
-    return filterCogDeg(sys.sensors.courseOverGroundDeg);
+    if (sys.sensors.locationUpdated)
+    {
+        return filterCogDeg(sys.sensors.courseOverGroundDeg);
+    }
+
+    return _filteredCogDeg;
 }
 
 float AutoController::computeDesiredSteerOffsetDeg(float courseErrorDeg) const

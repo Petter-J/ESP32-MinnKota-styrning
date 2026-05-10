@@ -60,7 +60,6 @@ static uint32_t readLocalButtons()
         mask |= buttonBit(ButtonId::STEER_RIGHT);
 
     return mask;
-
 }
 
 static void startCalibrationClockwise()
@@ -166,7 +165,7 @@ static void printTelemetry(const SystemState &sys)
         sys.sensors.latitudeDeg,
         sys.sensors.longitudeDeg,
         sys.sensors.gpsSpeedMps,
-        sys.sensors.speedMps, 
+        sys.sensors.speedMps,
         sys.sensors.courseOverGroundDeg,
         sys.sensors.speedPct,
         sys.targetHeadingDeg,
@@ -200,7 +199,7 @@ void setup()
 
     if (forceOta)
     {
-        
+
         ota_begin();
 
         while (true)
@@ -209,7 +208,6 @@ void setup()
             delay(10);
         }
     }
-
 
     pinMode(ButtonPins::MODE_MANUAL, INPUT_PULLUP);
     pinMode(ButtonPins::MODE_AUTO, INPUT_PULLUP);
@@ -255,20 +253,26 @@ void loop()
 {
     static uint32_t lastMainMs = 0;
     static uint32_t lastControlMs = 0;
-    static uint32_t lastSimMs = 0;
     static uint32_t lastPrintMs = 0;
-    static uint32_t lastHeartbeatMs = 0;
-    static bool ledState = false;
 
     const uint32_t now = millis();
 
-    // Emergency OTA: local STOP held 5 sec, before sensors/navigation
+    // Main loop pacing
+    if (now - lastMainMs < TimingConfig::MAIN_LOOP_INTERVAL_MS)
+    {
+        return;
+    }
+    lastMainMs = now;
+
+    // 1. Read local buttons
+    const uint32_t localMask = readLocalButtons();
+
+    // Emergency OTA: local STOP held 5 sec
     static uint32_t earlyOtaStopHoldStartMs = 0;
     static bool earlyOtaTriggered = false;
 
-    const uint32_t earlyLocalMask = readLocalButtons();
     const bool earlyLocalStopHeld =
-        (earlyLocalMask & buttonBit(ButtonId::STOP)) != 0;
+        (localMask & buttonBit(ButtonId::STOP)) != 0;
 
     if (earlyLocalStopHeld)
     {
@@ -291,21 +295,56 @@ void loop()
 
     ota_handle();
 
-    
+    // 2. Read remotes
+    const uint32_t rawRemoteMask = gRemote.getCombinedMask(now);
 
-        // Main loop pacing
-    if (now - lastMainMs < TimingConfig::MAIN_LOOP_INTERVAL_MS)
+    static uint32_t remoteMaskFiltered = 0;
+    static uint32_t lastRemoteNonZeroMs = 0;
+
+    if (rawRemoteMask != 0)
     {
-        return;
+        remoteMaskFiltered = rawRemoteMask;
+        lastRemoteNonZeroMs = now;
     }
-    lastMainMs = now;
+    else
+    {
+        if (now - lastRemoteNonZeroMs > 30)
+        {
+            remoteMaskFiltered = 0;
+        }
+    }
 
-    // 0. Update sensors first
+    const uint32_t remoteMask = remoteMaskFiltered;
+
+    const uint32_t lastRx = gRemote.lastRxTimeMs();
+
+    const uint32_t rxAge =
+        (lastRx > 0)
+            ? (now - lastRx)
+            : 999999;
+
+    if (lastRx > 0 && rxAge < 1000)
+    {
+        gSys.lastCommandTimeMs = now;
+    }
+
+    // 3. Combine inputs
+    const uint32_t effectiveMask = localMask | remoteMask;
+
+    gSys.lastCommand.buttonMask = effectiveMask;
+    gSys.lastCommand.valid = true;
+    gSys.lastCommand.timestampMs = now;
+
+    // 4. Interpret buttons
+    const ButtonOutput btn = gButtons.update(effectiveMask, now);
+
+    // 5. Apply input policy BEFORE navigation
+    gInputLogic.applyButtons(btn, now, gSys, gController);
+
+    // 6. Boat heading from Remote1
     float remoteBoatHeadingDeg = 0.0f;
 
-    if (gRemote.getBoatHeading(remoteBoatHeadingDeg, now) &&
-        remoteBoatHeadingDeg >= 0.0f &&
-        remoteBoatHeadingDeg < 360.0f)
+    if (gRemote.getBoatHeading(remoteBoatHeadingDeg, now))
     {
         gSys.sensors.boatHeadingDeg = remoteBoatHeadingDeg;
         gSys.sensors.boatImuValid = true;
@@ -315,9 +354,10 @@ void loop()
         gSys.sensors.boatImuValid = false;
     }
 
+    // 7. Navigation: GPS + local MH + fusion
     gNavigation.update(gSys.sensors);
 
-    // 0.5 Calibration sweep update
+    // 8. Calibration sweep update
     gCalibration.update(
         gSys.sensors.courseOverGroundDeg,
         gSys.sensors.gpsSpeedMps,
@@ -358,68 +398,8 @@ void loop()
         sendBoatLutToRemote();
     }
 
-    // 1. Read local buttons
-    const uint32_t localMask = readLocalButtons();
-
-    // 2. Read ALL remotes (combined inside RemoteEspNow)
-    const uint32_t rawRemoteMask = gRemote.getCombinedMask(now);
-
-    static uint32_t remoteMaskFiltered = 0;
-    static uint32_t lastRemoteNonZeroMs = 0;
-
-    if (rawRemoteMask != 0)
-    {
-        remoteMaskFiltered = rawRemoteMask;
-        lastRemoteNonZeroMs = now;
-    }
-    else
-    {
-        if (now - lastRemoteNonZeroMs > 30)
-        {
-            remoteMaskFiltered = 0;
-        }
-    }
-
-    const uint32_t remoteMask = remoteMaskFiltered;
-
-    const uint32_t lastRx = gRemote.lastRxTimeMs();
-
-    const uint32_t rxAge =
-        (lastRx > 0)
-            ? (now - lastRx)
-            : 999999;
-
-    if (lastRx > 0 && rxAge < 1000)
-    {
-        gSys.lastCommandTimeMs = now;
-    }
-
-    // 3. Combine all inputs
-    const uint32_t effectiveMask = localMask | remoteMask;
-
-    if (effectiveMask != 0)
-    {
-        DBG_PRINTF("[BTN] local=0x%08lx remote=0x%08lx effective=0x%08lx\n",
-                   localMask, remoteMask, effectiveMask);
-    }
-
-    
-
-    // 4. Store command
-    gSys.lastCommand.buttonMask = effectiveMask;
-    gSys.lastCommand.valid = true;
-    gSys.lastCommand.timestampMs = now;
-
-    // 5. Interpret buttons
-    const ButtonOutput btn = gButtons.update(effectiveMask, now);
-
-   
-    // 6. Apply input policy
-    gInputLogic.applyButtons(btn, now, gSys, gController);
-
-    // 7. Apply safety
+    // 9. Safety AFTER fresh sensors
     gInputLogic.applySafety(now, gSys, gController);
-
 
     if (btn.stopRequested && gCalibration.active())
     {
@@ -448,7 +428,7 @@ void loop()
         startCalibrationClockwise();
     }
 
-    // 8. Control update
+    // 10. Control update
     if (now - lastControlMs >= TimingConfig::CONTROL_INTERVAL_MS)
     {
         const float dtSec = (now - lastControlMs) / 1000.0f;
@@ -458,7 +438,7 @@ void loop()
         gMotors.apply(gSys.actuators, gSys.motorsEnabled, dtSec);
     }
 
-    // 9. Send status to remotes
+    // 11. Send status to remotes
     StatusPacket pkt;
     pkt.mode = (uint8_t)gSys.mode;
 
@@ -475,20 +455,19 @@ void loop()
 
     if (gSys.sensors.motorImuValid)
     {
-        pkt.motorHeadingDeg10 = (uint16_t)roundf(gSys.sensors.motorHeadingDeg * 10.0f);
+        pkt.motorHeadingDeg10 =
+            (uint16_t)roundf(gSys.sensors.motorHeadingDeg * 10.0f);
     }
     else
     {
         pkt.motorHeadingDeg10 = 0;
     }
 
-    pkt.targetHeadingDeg10 = (uint16_t)roundf(gSys.targetHeadingDeg * 10.0f);
-    
+    pkt.targetHeadingDeg10 =
+        (uint16_t)roundf(gSys.targetHeadingDeg * 10.0f);
 
     pkt.satellites = (uint8_t)gSys.sensors.satellites;
     pkt.satellitesInView = (uint8_t)gSys.sensors.satellitesInView;
-
-    // 🔥 STEER baserat på faktisk motorstyrning
 
     if (gSys.actuators.steerPct < -1.0f)
     {
@@ -504,6 +483,7 @@ void loop()
     }
 
     pkt.flags = 0;
+
     if (gSys.sensors.gpsValid)
     {
         pkt.flags |= STATUS_FLAG_GPS_VALID;
@@ -514,9 +494,8 @@ void loop()
         pkt.flags |= STATUS_FLAG_OTA_ACTIVE;
     }
 
-    //pkt.counter = (uint8_t)gStatusCounter++;
     pkt.counter = (uint8_t)(remoteMask & 0xFF);
-    
+
     pkt.calFlags = 0;
 
     if (gCalibration.active())
@@ -547,28 +526,26 @@ void loop()
         pkt.calPhase = static_cast<uint8_t>(RemoteCalPhase::None);
     }
 
-    // Skicka status med olika takt per remote (lätt att ändra senare)
     static uint32_t lastStatusR1Ms = 0;
     static uint32_t lastStatusR2Ms = 0;
 
-    if (now - lastStatusR1Ms >= 50) // Remote1: 10 Hz
+    if (now - lastStatusR1Ms >= 50)
     {
         lastStatusR1Ms = now;
 
-        StatusPacket pkt1 = pkt; // framtid: anpassa pkt1 för remote1
+        StatusPacket pkt1 = pkt;
         gRemote.sendStatusRemote1(pkt1);
     }
 
-    if (now - lastStatusR2Ms >= 50) // Remote2: 20 Hz
+    if (now - lastStatusR2Ms >= 70)
     {
         lastStatusR2Ms = now;
 
-        StatusPacket pkt2 = pkt; // framtid: anpassa pkt2 för remote2
+        StatusPacket pkt2 = pkt;
         gRemote.sendStatusRemote2(pkt2);
     }
 
-
-    // 11. Telemetry
+    // 12. Telemetry
     if (now - lastPrintMs >= TimingConfig::PRINT_INTERVAL_MS)
     {
         lastPrintMs = now;

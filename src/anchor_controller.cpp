@@ -99,9 +99,9 @@ void AnchorController::onEnter(SystemState &sys)
         }
     }
 
-    if (sys.sensors.headingValid)
+    if (sys.sensors.motorImuValid)
     {
-        sys.targetHeadingDeg = sys.sensors.headingDeg;
+        sys.targetHeadingDeg = sys.sensors.motorHeadingDeg;
     }
 }
 ActuatorCommand AnchorController::update(float dtSec, SystemState &sys, PidController &headingPid)
@@ -117,24 +117,23 @@ ActuatorCommand AnchorController::update(float dtSec, SystemState &sys, PidContr
         return out;
     }
 
-    const float anchorRadiusM = AnchorConfig::RADIUS_M;
+    const float startRadiusM = AnchorConfig::START_RADIUS_M;
+    const float stopRadiusM = AnchorConfig::STOP_RADIUS_M;
     const float fullThrustDistM = AnchorConfig::FULL_THRUST_DIST_M;
     //const float minAnchorThrustPct = AnchorConfig::MIN_THRUST_PCT;
     const float maxAnchorThrustPct = AnchorConfig::MAX_THRUST_PCT;
 
-    mLatBuf[mGpsIndex] = sys.sensors.latitudeDeg;
-    mLonBuf[mGpsIndex] = sys.sensors.longitudeDeg;
-
-    mGpsIndex = (mGpsIndex + 1) % GPS_AVG_COUNT;
-
-    if (mGpsCount < GPS_AVG_COUNT)
+    if (sys.sensors.locationUpdated)
     {
-        mGpsCount++;
-    }
+        mLatBuf[mGpsIndex] = sys.sensors.latitudeDeg;
+        mLonBuf[mGpsIndex] = sys.sensors.longitudeDeg;
 
-    if (mGpsCount < GPS_AVG_COUNT)
-    {
-        mGpsCount++;
+        mGpsIndex = (mGpsIndex + 1) % GPS_AVG_COUNT;
+
+        if (mGpsCount < GPS_AVG_COUNT)
+        {
+            mGpsCount++;
+        }
     }
 
     double avgLat = 0.0;
@@ -155,7 +154,7 @@ ActuatorCommand AnchorController::update(float dtSec, SystemState &sys, PidContr
         sys.anchorLatDeg,
         sys.anchorLonDeg);
 
-    if (distM <= anchorRadiusM)
+    if (distM <= stopRadiusM)
     {
         const uint32_t nowMs = millis();
 
@@ -180,6 +179,16 @@ ActuatorCommand AnchorController::update(float dtSec, SystemState &sys, PidContr
         mReturnStartMs = 0;
 
         strcpy(sys.sensors.autoState, "HOLD");
+        headingPid.reset();
+        out.thrustPct = 0.0f;
+        out.steerPct = 0.0f;
+        return out;
+    }
+
+    if (distM < startRadiusM)
+    {
+        strcpy(sys.sensors.autoState, "DRIFT");
+        headingPid.reset();
         out.thrustPct = 0.0f;
         out.steerPct = 0.0f;
         return out;
@@ -200,11 +209,14 @@ ActuatorCommand AnchorController::update(float dtSec, SystemState &sys, PidContr
         sys.anchorLatDeg,
         sys.anchorLonDeg);
 
-    const float headingError =
+    float headingError =
         shortestAngleErrorDeg(targetBearingDeg, sys.sensors.motorHeadingDeg);
 
-    float steerCmd = headingPid.update(headingError, dtSec);
-    out.steerPct = clampf(steerCmd, Limits::STEER_MIN_PCT, Limits::STEER_MAX_PCT);
+    if (fabsf(headingError) < AnchorConfig::HEADING_DEADBAND_DEG)
+    {
+        headingError = 0.0f;
+    }
+
 
     float thrustPct = mAnchorLearnedThrustPct;
 
@@ -221,7 +233,7 @@ ActuatorCommand AnchorController::update(float dtSec, SystemState &sys, PidContr
     }
     else
     {
-        const float t = (distM - anchorRadiusM) / (fullThrustDistM - anchorRadiusM);
+        const float t = (distM - startRadiusM) / (fullThrustDistM - startRadiusM);
         thrustPct = mAnchorLearnedThrustPct + t * (maxAnchorThrustPct - mAnchorLearnedThrustPct);
     }
 
@@ -236,6 +248,24 @@ ActuatorCommand AnchorController::update(float dtSec, SystemState &sys, PidContr
         thrustPct *= 0.5f;
     }
 
-    out.thrustPct = clampf(thrustPct, Limits::THRUST_MIN_PCT, Limits::THRUST_MAX_PCT);
+    if (thrustPct <= 0.0f)
+    {
+        headingPid.reset();
+        out.steerPct = 0.0f;
+    }
+    else
+    {
+        float steerCmd = headingPid.update(headingError, dtSec);
+        out.steerPct = clampf(
+            steerCmd,
+            Limits::STEER_MIN_PCT,
+            Limits::STEER_MAX_PCT);
+    }
+
+    out.thrustPct = clampf(
+        thrustPct,
+        Limits::THRUST_MIN_PCT,
+        Limits::THRUST_MAX_PCT);
+
     return out;
 }

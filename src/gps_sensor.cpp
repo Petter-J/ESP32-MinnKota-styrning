@@ -29,6 +29,11 @@ void GpsSensor::update(GpsFix &out)
     {
         out.latDeg = _gps.location.lat();
         out.lonDeg = _gps.location.lng();
+        out.locationUpdated = _gps.location.isUpdated();
+    }
+    else
+    {
+        out.locationUpdated = false;
     }
 
     if (out.speedValid)
