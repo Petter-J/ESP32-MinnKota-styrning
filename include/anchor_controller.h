@@ -20,6 +20,8 @@ public:
 
 private:
     static constexpr uint8_t GPS_AVG_COUNT = 8;
+    static constexpr uint8_t START_CONFIRM_COUNT = 3;
+    static constexpr uint8_t STOP_CONFIRM_COUNT = 3;
 
     double mLatBuf[GPS_AVG_COUNT] = {};
     double mLonBuf[GPS_AVG_COUNT] = {};
@@ -36,6 +38,9 @@ private:
     uint32_t mDriftStartMs = 0;
     uint32_t mDriftTimeSumMs = 0;
     uint8_t mDriftSamples = 0;
+
+    uint8_t mStartZoneHits = 0;
+    uint8_t mStopZoneHits = 0;
 
     float mAnchorLearnedThrustPct = 5.0f;
 
