@@ -85,6 +85,7 @@ void AnchorController::onEnter(SystemState &sys)
     mDriftSamples = 0;
 
     mStartZoneHits = 0;
+    mDriftZoneHits = 0;
     mStopZoneHits = 0;
 
     mAnchorMode = AnchorMode::Learning;
@@ -125,6 +126,7 @@ void AnchorController::onExit()
     mDriftSamples = 0;
 
     mStartZoneHits = 0;
+    mDriftZoneHits = 0;
     mStopZoneHits = 0;
 
     mAnchorMode = AnchorMode::Learning;
@@ -205,52 +207,69 @@ ActuatorCommand AnchorController::update(float dtSec, SystemState &sys, PidContr
 
     const uint32_t nowMs = millis();
 
+    const bool inZone3 = (distRawM <= stopRadiusM);
+    const bool inZone5 = (distRawM >= startRadiusM);
+    const bool inZone4 = !inZone3 && !inZone5;
+
     if (mWasInsideRadius)
     {
-        if (distRawM >= startRadiusM && mStartZoneHits < START_CONFIRM_COUNT)
+        if (inZone4 && mDriftZoneHits < START_CONFIRM_COUNT)
         {
-            mStartZoneHits++;
+            mDriftZoneHits++;
         }
+
+        if (mDriftZoneHits >= START_CONFIRM_COUNT)
+        {
+            if (inZone3)
+            {
+                mDriftZoneHits = 0;
+            }
+            else if (inZone5 && mStartZoneHits < START_CONFIRM_COUNT)
+            {
+                mStartZoneHits++;
+            }
+        }
+
+        mStopZoneHits = 0;
     }
     else
     {
-        if (distRawM <= stopRadiusM && mStopZoneHits < STOP_CONFIRM_COUNT)
+        if (inZone4 && mDriftZoneHits < START_CONFIRM_COUNT)
         {
-            mStopZoneHits++;
+            mDriftZoneHits++;
         }
+
+        if (mDriftZoneHits >= START_CONFIRM_COUNT)
+        {
+            if (inZone5)
+            {
+                mDriftZoneHits = 0;
+            }
+            else if (inZone3 && mStopZoneHits < STOP_CONFIRM_COUNT)
+            {
+                mStopZoneHits++;
+            }
+        }
+
+        mStartZoneHits = 0;
     }
 
-    const bool insideStop = (!mWasInsideRadius && (mStopZoneHits >= STOP_CONFIRM_COUNT));
-    const bool outsideStart = (mWasInsideRadius && (mStartZoneHits >= START_CONFIRM_COUNT));
+    const bool leftZone3Confirmed =
+        (mWasInsideRadius && (mDriftZoneHits >= START_CONFIRM_COUNT));
 
-    const bool returnActive = outsideStart || !mWasInsideRadius;
-    const bool inDriftZone = !insideStop && !returnActive;
+    const bool reachedZone5Confirmed =
+        (mWasInsideRadius && (mStartZoneHits >= START_CONFIRM_COUNT));
 
-    if (insideStop)
+    const bool leftZone5Confirmed =
+        (!mWasInsideRadius && (mDriftZoneHits >= START_CONFIRM_COUNT));
+
+    const bool reachedZone3Confirmed =
+        (!mWasInsideRadius && (mStopZoneHits >= STOP_CONFIRM_COUNT));
+
+    if (mWasInsideRadius && !leftZone3Confirmed)
     {
-        if (!mWasInsideRadius && mReturnStartMs != 0)
-        {
-            const uint32_t returnTimeMs = nowMs - mReturnStartMs;
-
-            const uint32_t target = AnchorConfig::TARGET_RETURN_TIME_MS;
-            const uint32_t deadband = AnchorConfig::RETURN_TIME_DEADBAND_MS;
-
-            if (returnTimeMs > target + deadband)
-            {
-                mAnchorLearnedThrustPct += AnchorConfig::THRUST_ADJUST_STEP_PCT;
-            }
-            else if (returnTimeMs < target - deadband)
-            {
-                mAnchorLearnedThrustPct -= AnchorConfig::THRUST_ADJUST_STEP_PCT;
-            }
-
-            mAnchorLearnedThrustPct = clampAnchorThrust(mAnchorLearnedThrustPct);
-        }
-
-        mWasInsideRadius = true;
         mOutsideSinceMs = 0;
         mReturnStartMs = 0;
-
         mStartZoneHits = 0;
         mStopZoneHits = 0;
 
@@ -278,86 +297,35 @@ ActuatorCommand AnchorController::update(float dtSec, SystemState &sys, PidContr
         return out;
     }
 
-    if (!mWasInsideRadius && returnActive)
+    if (mWasInsideRadius && leftZone3Confirmed && !reachedZone5Confirmed)
     {
+        mOutsideSinceMs = 0;
+        mReturnStartMs = 0;
+        mStopZoneHits = 0;
+
         if (mAnchorMode == AnchorMode::Learning)
         {
-            strcpy(sys.sensors.autoState, "LEARN_RET");
-        }
-        else if (mAnchorMode == AnchorMode::Maintenance)
-        {
-            strcpy(sys.sensors.autoState, "M_RETURN");
+            strcpy(sys.sensors.autoState, "L_DRIFT");
         }
         else
         {
-            strcpy(sys.sensors.autoState, "RETURN");
+            strcpy(sys.sensors.autoState, "DRIFT");
         }
 
-        const float targetBearingDeg = bearingDeg(
-            sys.sensors.latitudeDeg,
-            sys.sensors.longitudeDeg,
-            sys.anchorLatDeg,
-            sys.anchorLonDeg);
-
-        float headingError =
-            shortestAngleErrorDeg(targetBearingDeg, sys.sensors.motorHeadingDeg);
-
-        if (fabsf(headingError) < AnchorConfig::HEADING_DEADBAND_DEG)
-        {
-            headingError = 0.0f;
-        }
-
-        float steerCmd = headingPid.update(headingError, dtSec);
-
-        out.steerPct = clampf(
-            steerCmd,
-            Limits::STEER_MIN_PCT,
-            Limits::STEER_MAX_PCT);
-
-        float thrustPct = mAnchorLearnedThrustPct;
-
-        if (distAvgM >= fullThrustDistM)
-        {
-            thrustPct = maxAnchorThrustPct;
-        }
-        else if (distAvgM > startRadiusM)
-        {
-            const float denom = fullThrustDistM - startRadiusM;
-
-            if (denom > 0.01f)
-            {
-                const float t = (distAvgM - startRadiusM) / denom;
-                thrustPct =
-                    mAnchorLearnedThrustPct +
-                    t * (maxAnchorThrustPct - mAnchorLearnedThrustPct);
-            }
-        }
-
-        const float absHeadingError = fabsf(headingError);
-
-        if (absHeadingError > 90.0f)
-        {
-            thrustPct = AnchorConfig::MIN_THRUST_PCT;
-        }
-        else if (absHeadingError > 45.0f)
-        {
-            thrustPct *= 0.5f;
-        }
-
-        out.thrustPct = clampf(
-            thrustPct,
-            Limits::THRUST_MIN_PCT,
-            Limits::THRUST_MAX_PCT);
-
+        headingPid.reset();
+        out.thrustPct = 0.0f;
+        out.steerPct = 0.0f;
         return out;
     }
 
-    if (outsideStart)
+    if (reachedZone5Confirmed)
     {
         mWasInsideRadius = false;
         mOutsideSinceMs = nowMs;
         mReturnStartMs = nowMs;
 
+        mStartZoneHits = 0;
+        mDriftZoneHits = 0;
         mStopZoneHits = 0;
 
         if (mAnchorMode == AnchorMode::Learning && mDriftStartMs != 0)
@@ -403,7 +371,74 @@ ActuatorCommand AnchorController::update(float dtSec, SystemState &sys, PidContr
                 mDriftStartMs = 0;
             }
         }
+    }
 
+    if (!mWasInsideRadius && reachedZone3Confirmed)
+    {
+        if (mReturnStartMs != 0)
+        {
+            const uint32_t returnTimeMs = nowMs - mReturnStartMs;
+
+            const uint32_t target = AnchorConfig::TARGET_RETURN_TIME_MS;
+            const uint32_t deadband = AnchorConfig::RETURN_TIME_DEADBAND_MS;
+
+            if (returnTimeMs > target + deadband)
+            {
+                mAnchorLearnedThrustPct += AnchorConfig::THRUST_ADJUST_STEP_PCT;
+            }
+            else if (returnTimeMs < target - deadband)
+            {
+                mAnchorLearnedThrustPct -= AnchorConfig::THRUST_ADJUST_STEP_PCT;
+            }
+
+            mAnchorLearnedThrustPct = clampAnchorThrust(mAnchorLearnedThrustPct);
+        }
+
+        mWasInsideRadius = true;
+        mOutsideSinceMs = 0;
+        mReturnStartMs = 0;
+
+        mStartZoneHits = 0;
+        mDriftZoneHits = 0;
+        mStopZoneHits = 0;
+
+        if (mAnchorMode == AnchorMode::Learning && mDriftStartMs == 0)
+        {
+            mDriftStartMs = nowMs;
+        }
+
+        if (mAnchorMode == AnchorMode::Learning)
+        {
+            strcpy(sys.sensors.autoState, "L_HOLD");
+        }
+        else if (mAnchorMode == AnchorMode::Maintenance)
+        {
+            strcpy(sys.sensors.autoState, "M_HOLD");
+        }
+        else
+        {
+            strcpy(sys.sensors.autoState, "HOLD");
+        }
+
+        headingPid.reset();
+        out.thrustPct = 0.0f;
+        out.steerPct = 0.0f;
+        return out;
+    }
+
+    if (!mWasInsideRadius && leftZone5Confirmed)
+    {
+        if (mAnchorMode == AnchorMode::Learning)
+        {
+            strcpy(sys.sensors.autoState, "L_DRIFT");
+        }
+        else
+        {
+            strcpy(sys.sensors.autoState, "DRIFT");
+        }
+    }
+    else
+    {
         if (mAnchorMode == AnchorMode::Learning)
         {
             strcpy(sys.sensors.autoState, "LEARN_RET");
@@ -416,123 +451,63 @@ ActuatorCommand AnchorController::update(float dtSec, SystemState &sys, PidContr
         {
             strcpy(sys.sensors.autoState, "RETURN");
         }
-
-        const float targetBearingDeg = bearingDeg(
-            sys.sensors.latitudeDeg,
-            sys.sensors.longitudeDeg,
-            sys.anchorLatDeg,
-            sys.anchorLonDeg);
-
-        float headingError =
-            shortestAngleErrorDeg(targetBearingDeg, sys.sensors.motorHeadingDeg);
-
-        if (fabsf(headingError) < AnchorConfig::HEADING_DEADBAND_DEG)
-        {
-            headingError = 0.0f;
-        }
-
-        float steerCmd = headingPid.update(headingError, dtSec);
-
-        out.steerPct = clampf(
-            steerCmd,
-            Limits::STEER_MIN_PCT,
-            Limits::STEER_MAX_PCT);
-
-        float thrustPct = mAnchorLearnedThrustPct;
-
-        if (distAvgM >= fullThrustDistM)
-        {
-            thrustPct = maxAnchorThrustPct;
-        }
-        else if (distAvgM > startRadiusM)
-        {
-            const float denom = fullThrustDistM - startRadiusM;
-
-            if (denom > 0.01f)
-            {
-                const float t = (distAvgM - startRadiusM) / denom;
-                thrustPct =
-                    mAnchorLearnedThrustPct +
-                    t * (maxAnchorThrustPct - mAnchorLearnedThrustPct);
-            }
-        }
-
-        const float absHeadingError = fabsf(headingError);
-
-        if (absHeadingError > 90.0f)
-        {
-            thrustPct = AnchorConfig::MIN_THRUST_PCT;
-        }
-        else if (absHeadingError > 45.0f)
-        {
-            thrustPct *= 0.5f;
-        }
-
-        out.thrustPct = clampf(
-            thrustPct,
-            Limits::THRUST_MIN_PCT,
-            Limits::THRUST_MAX_PCT);
-
-        return out;
     }
 
-    if (mAnchorMode == AnchorMode::Learning && mDriftStartMs == 0)
+    const float targetBearingDeg = bearingDeg(
+        sys.sensors.latitudeDeg,
+        sys.sensors.longitudeDeg,
+        sys.anchorLatDeg,
+        sys.anchorLonDeg);
+
+    float headingError =
+        shortestAngleErrorDeg(targetBearingDeg, sys.sensors.motorHeadingDeg);
+
+    if (fabsf(headingError) < AnchorConfig::HEADING_DEADBAND_DEG)
     {
-        mDriftStartMs = nowMs;
+        headingError = 0.0f;
     }
 
-    if (mAnchorMode == AnchorMode::Maintenance)
+    float steerCmd = headingPid.update(headingError, dtSec);
+
+    out.steerPct = clampf(
+        steerCmd,
+        Limits::STEER_MIN_PCT,
+        Limits::STEER_MAX_PCT);
+
+    float thrustPct = mAnchorLearnedThrustPct;
+
+    if (distAvgM >= fullThrustDistM)
     {
-        strcpy(sys.sensors.autoState, "MAINTAIN");
+        thrustPct = maxAnchorThrustPct;
+    }
+    else if (distAvgM > startRadiusM)
+    {
+        const float denom = fullThrustDistM - startRadiusM;
 
-        const float targetBearingDeg = bearingDeg(
-            sys.sensors.latitudeDeg,
-            sys.sensors.longitudeDeg,
-            sys.anchorLatDeg,
-            sys.anchorLonDeg);
-
-        float headingError =
-            shortestAngleErrorDeg(targetBearingDeg, sys.sensors.motorHeadingDeg);
-
-        if (fabsf(headingError) < AnchorConfig::HEADING_DEADBAND_DEG)
+        if (denom > 0.01f)
         {
-            headingError = 0.0f;
+            const float t = (distAvgM - startRadiusM) / denom;
+            thrustPct =
+                mAnchorLearnedThrustPct +
+                t * (maxAnchorThrustPct - mAnchorLearnedThrustPct);
         }
-
-        float steerCmd = headingPid.update(headingError, dtSec);
-
-        out.steerPct = clampf(
-            steerCmd,
-            Limits::STEER_MIN_PCT,
-            Limits::STEER_MAX_PCT);
-
-        float maintenanceThrust =
-            mAnchorLearnedThrustPct * AnchorConfig::MAINTENANCE_FACTOR;
-
-        maintenanceThrust = clampf(
-            maintenanceThrust,
-            AnchorConfig::MIN_MAINTENANCE_THRUST_PCT,
-            AnchorConfig::MAX_MAINTENANCE_THRUST_PCT);
-
-        out.thrustPct = clampf(
-            maintenanceThrust,
-            Limits::THRUST_MIN_PCT,
-            Limits::THRUST_MAX_PCT);
-
-        return out;
     }
 
-    if (mAnchorMode == AnchorMode::Learning)
+    const float absHeadingError = fabsf(headingError);
+
+    if (absHeadingError > 90.0f)
     {
-        strcpy(sys.sensors.autoState, "L_DRIFT");
+        thrustPct = AnchorConfig::MIN_THRUST_PCT;
     }
-    else
+    else if (absHeadingError > 45.0f)
     {
-        strcpy(sys.sensors.autoState, "DRIFT");
+        thrustPct *= 0.5f;
     }
 
-    headingPid.reset();
-    out.thrustPct = 0.0f;
-    out.steerPct = 0.0f;
+    out.thrustPct = clampf(
+        thrustPct,
+        Limits::THRUST_MIN_PCT,
+        Limits::THRUST_MAX_PCT);
+
     return out;
 }

@@ -40,6 +40,7 @@ private:
     uint8_t mDriftSamples = 0;
 
     uint8_t mStartZoneHits = 0;
+    uint8_t mDriftZoneHits = 0;
     uint8_t mStopZoneHits = 0;
 
     float mAnchorLearnedThrustPct = 5.0f;
