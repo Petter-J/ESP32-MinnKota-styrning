@@ -92,6 +92,19 @@ namespace AnchorConfig
     // Begränsningar för maintenance thrust
     static constexpr float MIN_MAINTENANCE_THRUST_PCT = 2.0f;
     static constexpr float MAX_MAINTENANCE_THRUST_PCT = 10.0f;
+
+    // --------------------------------------------------------
+    // Drift line maintenance
+    // --------------------------------------------------------
+    static constexpr float BASE_THRUST_ADJUST_STEP_PCT = 1.0f;
+    static constexpr float CORRECTION_THRUST_OFFSET_PCT = 5.0f;
+    static constexpr uint32_t BASE_THRUST_ADJUST_INTERVAL_MS = 5000;
+
+    // Positiv riktning = samma riktning som båten brukar driva ut i learning
+    static constexpr float DRIFT_BACK_ZONE_M = 1.5f;
+
+    // Negativ sida om ankarpunkten, används som "stopplinje"
+    static constexpr float DRIFT_FRONT_STOP_LINE_M = -0.5f;
 }
 // ============================================================
 // BUTTONS
