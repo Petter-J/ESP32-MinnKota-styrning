@@ -112,15 +112,15 @@ namespace ButtonPins
 {
     // ESP32-S3 valid GPIOs (internal pull-ups, active LOW to GND)
     static constexpr int STOP = 8;
-    static constexpr int MODE_MANUAL = 13;
-    static constexpr int MODE_AUTO = 12;
-    static constexpr int MODE_ANCHOR = 11;
+    static constexpr int MODE_MANUAL = -1;
+    static constexpr int MODE_AUTO = -1;
+    static constexpr int MODE_ANCHOR = -1;
 
-    static constexpr int THRUST_UP = 10;
-    static constexpr int THRUST_DOWN = 9;
+    static constexpr int THRUST_UP = -1;
+    static constexpr int THRUST_DOWN = -1;
 
-    static constexpr int STEER_LEFT = 6;
-    static constexpr int STEER_RIGHT = 5;
+    static constexpr int STEER_LEFT = -1;
+    static constexpr int STEER_RIGHT = -1;
 }
 
 // ============================================================
@@ -150,18 +150,20 @@ namespace GpsConfig
 namespace CompassConfig
 {
     // UART-RVC för MOTOR BNO085
-    static constexpr int RX_PIN = 3;  // välj rätt pin på main
-    static constexpr int TX_PIN = -1; // eller riktig TX-pin om du använder den
+    static constexpr int RX_PIN = 3; // välj rätt pin på main
+    static constexpr int TX_PIN = 4; // eller riktig TX-pin om du använder den
     static constexpr uint32_t BAUD = 115200;
 
     static constexpr float M_HEADING_OFFSET_DEG = 46.0f;
+    static constexpr uint32_t MOTOR_HEADING_HOLD_MS = 400;
+
 }
 
 namespace BoatCompassConfig
 {
     // UART-RVC för BOAT BNO085
-    static constexpr int RX_PIN = 3;  // ESP RX <- BNO TX
-    static constexpr int TX_PIN = -1; // oftast ej använd i RVC
+    static constexpr int RX_PIN = 3; // ESP RX <- BNO TX
+    static constexpr int TX_PIN = 4; // oftast ej använd i RVC
     static constexpr uint32_t BAUD = 115200;
 
     static constexpr float B_HEADING_OFFSET_DEG = 0.0f;
@@ -224,7 +226,7 @@ namespace PwmConfig
 namespace TimingConfig
 {
     // Main ESP
-    static constexpr uint32_t MAIN_LOOP_INTERVAL_MS = 20;
+    static constexpr uint32_t MAIN_LOOP_INTERVAL_MS = 10;
 
     // Remote1 (boat IMU + buttons)
     static constexpr uint32_t REMOTE1_LOOP_INTERVAL_MS = 10;

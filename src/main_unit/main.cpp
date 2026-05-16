@@ -33,31 +33,30 @@ static uint32_t gCalibrationCommandId = 1;
 // ============================================================
 static uint32_t readLocalButtons()
 {
-
     uint32_t mask = 0;
 
-    if (digitalRead(ButtonPins::STOP) == LOW)
+    if (ButtonPins::STOP >= 0 && digitalRead(ButtonPins::STOP) == LOW)
         mask |= buttonBit(ButtonId::STOP);
 
-    if (digitalRead(ButtonPins::MODE_MANUAL) == LOW)
+    if (ButtonPins::MODE_MANUAL >= 0 && digitalRead(ButtonPins::MODE_MANUAL) == LOW)
         mask |= buttonBit(ButtonId::MODE_MANUAL);
 
-    if (digitalRead(ButtonPins::MODE_AUTO) == LOW)
+    if (ButtonPins::MODE_AUTO >= 0 && digitalRead(ButtonPins::MODE_AUTO) == LOW)
         mask |= buttonBit(ButtonId::MODE_AUTO);
 
-    if (digitalRead(ButtonPins::MODE_ANCHOR) == LOW)
+    if (ButtonPins::MODE_ANCHOR >= 0 && digitalRead(ButtonPins::MODE_ANCHOR) == LOW)
         mask |= buttonBit(ButtonId::MODE_ANCHOR);
 
-    if (digitalRead(ButtonPins::THRUST_UP) == LOW)
+    if (ButtonPins::THRUST_UP >= 0 && digitalRead(ButtonPins::THRUST_UP) == LOW)
         mask |= buttonBit(ButtonId::THRUST_UP);
 
-    if (digitalRead(ButtonPins::THRUST_DOWN) == LOW)
+    if (ButtonPins::THRUST_DOWN >= 0 && digitalRead(ButtonPins::THRUST_DOWN) == LOW)
         mask |= buttonBit(ButtonId::THRUST_DOWN);
 
-    if (digitalRead(ButtonPins::STEER_LEFT) == LOW)
+    if (ButtonPins::STEER_LEFT >= 0 && digitalRead(ButtonPins::STEER_LEFT) == LOW)
         mask |= buttonBit(ButtonId::STEER_LEFT);
 
-    if (digitalRead(ButtonPins::STEER_RIGHT) == LOW)
+    if (ButtonPins::STEER_RIGHT >= 0 && digitalRead(ButtonPins::STEER_RIGHT) == LOW)
         mask |= buttonBit(ButtonId::STEER_RIGHT);
 
     return mask;
@@ -182,14 +181,15 @@ void setup()
     Serial.begin(115200);
     delay(500);
 
-    pinMode(ButtonPins::STOP, INPUT_PULLUP);
+    if (ButtonPins::STOP >= 0)
+        pinMode(ButtonPins::STOP, INPUT_PULLUP);
 
     const uint32_t bootStartMs = millis();
     bool forceOta = false;
 
     while (millis() - bootStartMs < 5000)
     {
-        if (digitalRead(ButtonPins::STOP) == LOW)
+        if (ButtonPins::STOP >= 0 && digitalRead(ButtonPins::STOP) == LOW)
         {
             forceOta = true;
             break;
@@ -210,15 +210,26 @@ void setup()
         }
     }
 
-    pinMode(ButtonPins::MODE_MANUAL, INPUT_PULLUP);
-    pinMode(ButtonPins::MODE_AUTO, INPUT_PULLUP);
-    pinMode(ButtonPins::MODE_ANCHOR, INPUT_PULLUP);
+    if (ButtonPins::MODE_MANUAL >= 0)
+        pinMode(ButtonPins::MODE_MANUAL, INPUT_PULLUP);
 
-    pinMode(ButtonPins::THRUST_UP, INPUT_PULLUP);
-    pinMode(ButtonPins::THRUST_DOWN, INPUT_PULLUP);
+    if (ButtonPins::MODE_AUTO >= 0)
+        pinMode(ButtonPins::MODE_AUTO, INPUT_PULLUP);
 
-    pinMode(ButtonPins::STEER_LEFT, INPUT_PULLUP);
-    pinMode(ButtonPins::STEER_RIGHT, INPUT_PULLUP);
+    if (ButtonPins::MODE_ANCHOR >= 0)
+        pinMode(ButtonPins::MODE_ANCHOR, INPUT_PULLUP);
+
+    if (ButtonPins::THRUST_UP >= 0)
+        pinMode(ButtonPins::THRUST_UP, INPUT_PULLUP);
+
+    if (ButtonPins::THRUST_DOWN >= 0)
+        pinMode(ButtonPins::THRUST_DOWN, INPUT_PULLUP);
+
+    if (ButtonPins::STEER_LEFT >= 0)
+        pinMode(ButtonPins::STEER_LEFT, INPUT_PULLUP);
+
+    if (ButtonPins::STEER_RIGHT >= 0)
+        pinMode(ButtonPins::STEER_RIGHT, INPUT_PULLUP);
 
     DBG_PRINTLN("");
     DBG_PRINTLN("=======================================");
