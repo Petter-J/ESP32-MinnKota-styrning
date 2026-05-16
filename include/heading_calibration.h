@@ -8,10 +8,10 @@ constexpr uint8_t HEADING_CAL_BUCKET_COUNT = 16;
 constexpr float HEADING_CAL_BUCKET_STEP_DEG = 360.0f / HEADING_CAL_BUCKET_COUNT;
 
 // GPS-heading måste ligga inom +/- detta från bucket center
-constexpr float HEADING_CAL_BUCKET_WINDOW_DEG = 1.5f;
+constexpr float HEADING_CAL_BUCKET_WINDOW_DEG = 2.0f;
 
 // Minsta antal samples innan en bucket räknas som användbar
-constexpr uint16_t HEADING_CAL_MIN_SAMPLES_PER_BUCKET = 15;
+constexpr uint16_t HEADING_CAL_MIN_SAMPLES_PER_BUCKET = 10;
 
 enum class HeadingSweepPhase : uint8_t
 {

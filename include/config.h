@@ -8,9 +8,9 @@ namespace ManualControlConfig
 {
     static constexpr float THRUST_START_MIN_PCT = 20.0f;
     static constexpr float THRUST_STEP_PCT = 5.0f;
-    static constexpr uint32_t REPEAT_MS = 200;
+    static constexpr uint32_t REPEAT_MS = 100;
 
-    static constexpr float STEER_JOG_PCT = 100.0f; // max pwm
+    static constexpr float STEER_JOG_PCT = 60.0f; // max pwm
 }
 
 // ============================================================
@@ -22,10 +22,8 @@ namespace AutoControlConfig
     static constexpr float HEADING_STEP_DEG = 5.0f;
     static constexpr uint32_t REPEAT_MS = 250;
     static constexpr float SPEED_STEP_KN = 0.1f;
-    
+
 }
-
-
 
 // ============================================================
 // ANCHOR CONTROL
@@ -40,7 +38,7 @@ namespace AnchorConfig
     // --------------------------------------------------------
     // Radius logic
     // --------------------------------------------------------
-    static constexpr float STOP_RADIUS_M = 1.0f;       // Motor OFF innanför denna
+    static constexpr float STOP_RADIUS_M = 1.0f;        // Motor OFF innanför denna
     static constexpr float START_RADIUS_M = 2.0f;       // Normal ON
     static constexpr float LEARN_START_RADIUS_M = 2.5f; // Learning ON
 
@@ -151,20 +149,20 @@ namespace GpsConfig
 
 namespace CompassConfig
 {
-    // I2C för MOTOR BNO085
-    static constexpr int SDA_PIN = 3;
-    static constexpr int SCL_PIN = 4;
-    static constexpr uint32_t FREQ_HZ = 100000;
+    // UART-RVC för MOTOR BNO085
+    static constexpr int RX_PIN = 3;  // välj rätt pin på main
+    static constexpr int TX_PIN = -1; // eller riktig TX-pin om du använder den
+    static constexpr uint32_t BAUD = 115200;
 
-    static constexpr float M_HEADING_OFFSET_DEG = 0.0f;
+    static constexpr float M_HEADING_OFFSET_DEG = 46.0f;
 }
 
 namespace BoatCompassConfig
 {
-    // I2C för BOAT BNO085
-    static constexpr int SDA_PIN = 3;
-    static constexpr int SCL_PIN = 4;
-    static constexpr uint32_t FREQ_HZ = 100000;
+    // UART-RVC för BOAT BNO085
+    static constexpr int RX_PIN = 3;  // ESP RX <- BNO TX
+    static constexpr int TX_PIN = -1; // oftast ej använd i RVC
+    static constexpr uint32_t BAUD = 115200;
 
     static constexpr float B_HEADING_OFFSET_DEG = 0.0f;
     static constexpr uint32_t BOAT_HEADING_HOLD_MS = 400;
@@ -175,8 +173,8 @@ namespace BoatCompassConfig
 // ============================================================
 namespace RampConfig
 {
-    static constexpr float THRUST_RAMP_TIME_MS = 600.0f;
-    static constexpr float STEER_RAMP_TIME_MS = 400.0f;
+    static constexpr float THRUST_RAMP_TIME_MS = 400.0f;
+    static constexpr float STEER_RAMP_TIME_MS = 200.0f;
 }
 
 // ============================================================

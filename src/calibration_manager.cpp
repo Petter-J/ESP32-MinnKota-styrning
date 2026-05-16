@@ -107,7 +107,7 @@ void CalibrationManager::update(
     if (!isfinite(gpsCogDeg) || !isfinite(motorRawHeadingDeg))
         return;
 
-    if (gpsSpeedMs < 1.2f)
+    if (gpsSpeedMs < 0.8f)
         return;
 
     const int8_t bucket =

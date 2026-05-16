@@ -1,7 +1,7 @@
 #pragma once
 #include <Arduino.h>
-#include <Wire.h>
-#include <Adafruit_BNO08x.h>
+#include <HardwareSerial.h>
+#include <Adafruit_BNO08x_RVC.h>
 #include "config.h"
 #include "types.h"
 
@@ -23,8 +23,10 @@ struct ImuHeading
 class ImuSensor
 {
 public:
+    explicit ImuSensor(int uartNum = 2);
+
     bool begin();
-    bool begin(int sdaPin, int sclPin, uint32_t freqHz, float headingOffsetDeg);
+    bool begin(int rxPin, int txPin, uint32_t baud, float headingOffsetDeg);
 
     void update(ImuHeading &out);
 
@@ -32,14 +34,15 @@ public:
     void setCorrectionTable(const HeadingCorrectionPoint *table, uint8_t count);
 
 private:
-    bool enableReports();
     float correctHeading(float raw);
 
 private:
-    Adafruit_BNO08x _bno08x{-1};
-    sh2_SensorValue_t _sensorValue{};
+    HardwareSerial _serial;
+    Adafruit_BNO08x_RVC _rvc;
 
     float _headingDeg = 0.0f;
+    float _pitchDeg = 0.0f;
+    float _rollDeg = 0.0f;
     bool _valid = false;
 
     float _headingOffsetDeg = 0.0f;

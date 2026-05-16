@@ -169,14 +169,12 @@ void setup()
     Serial.begin(115200);
     delay(1500);
 
-    // Visa MAC-adress (viktigt för pairing)
     WiFi.mode(WIFI_STA);
     WiFi.setSleep(false);
 
     Serial.print("REMOTE MAC: ");
     Serial.println(WiFi.macAddress());
 
-    // Pins
     pinMode(RemoteButtonPins::STOP, INPUT_PULLUP);
     pinMode(RemoteButtonPins::MODE_MANUAL, INPUT_PULLUP);
     pinMode(RemoteButtonPins::MODE_AUTO, INPUT_PULLUP);
@@ -188,25 +186,9 @@ void setup()
     pinMode(RemoteButtonPins::STEER_LEFT, INPUT_PULLUP);
     pinMode(RemoteButtonPins::STEER_RIGHT, INPUT_PULLUP);
 
-    // Display
     display_begin();
+    delay(500);
 
-    gBoatImuStarted = gBoatImu.begin(
-        BoatCompassConfig::SDA_PIN,
-        BoatCompassConfig::SCL_PIN,
-        BoatCompassConfig::FREQ_HZ,
-        BoatCompassConfig::B_HEADING_OFFSET_DEG);
-
-    if (gBoatImuStarted)
-    {
-        Serial.println("[REMOTE] Boat IMU started");
-    }
-    else
-    {
-        Serial.println("[REMOTE] Boat IMU not found");
-    }
-
-    // ESP-NOW
     if (esp_now_init() != ESP_OK)
     {
         Serial.println("ESP-NOW init failed");
@@ -224,6 +206,22 @@ void setup()
     esp_now_add_peer(&peer);
 
     gRemoteCalibration.begin();
+    delay(500);
+
+    gBoatImuStarted = gBoatImu.begin(
+        BoatCompassConfig::RX_PIN,
+        BoatCompassConfig::TX_PIN,
+        BoatCompassConfig::BAUD,
+        BoatCompassConfig::B_HEADING_OFFSET_DEG);
+
+    if (gBoatImuStarted)
+    {
+        Serial.println("[REMOTE] Boat IMU started");
+    }
+    else
+    {
+        Serial.println("[REMOTE] Boat IMU not found");
+    }
 }
 
 // ============================================================
@@ -232,7 +230,6 @@ void setup()
 void loop()
 {
     static uint32_t lastButtonSendMs = 0;
-    static uint32_t lastHeadingSendMs = 0;
     static uint32_t lastSentMask = 0;
     static uint32_t lastMainMs = 0;
 

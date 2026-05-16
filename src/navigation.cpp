@@ -6,9 +6,9 @@ bool Navigation::begin()
     const bool gpsOk = _gps.begin();
 
     const bool imuOk = _imu.begin(
-        CompassConfig::SDA_PIN,
-        CompassConfig::SCL_PIN,
-        CompassConfig::FREQ_HZ,
+        CompassConfig::RX_PIN,
+        CompassConfig::TX_PIN,
+        CompassConfig::BAUD,
         CompassConfig::M_HEADING_OFFSET_DEG);
 
     Serial.printf(

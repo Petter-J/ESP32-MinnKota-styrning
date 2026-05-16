@@ -1,61 +1,39 @@
 #include "imu_sensor.h"
 #include "heading_calibration.h"
 
-bool ImuSensor::begin(int sdaPin, int sclPin, uint32_t freqHz, float headingOffsetDeg)
+ImuSensor::ImuSensor(int uartNum)
+    : _serial(uartNum)
 {
-    Wire.begin(sdaPin, sclPin);
-    Wire.setClock(freqHz);
+}
 
+bool ImuSensor::begin(int rxPin, int txPin, uint32_t baud, float headingOffsetDeg)
+{
     _headingDeg = 0.0f;
+    _pitchDeg = 0.0f;
+    _rollDeg = 0.0f;
     _valid = false;
     _imuFailCount = 0;
     _headingOffsetDeg = headingOffsetDeg;
 
-    if (!_bno08x.begin_I2C())
+    _serial.begin(baud, SERIAL_8N1, rxPin, txPin);
+
+    if (!_rvc.begin(&_serial))
     {
-        Serial.println("[NAV] BNO085 not found on I2C");
+        Serial.println("[IMU] BNO085 RVC not found on UART");
         return false;
     }
 
-    Serial.println("[NAV] BNO085 found");
-
-    if (enableReports())
-    {
-        Serial.println("[NAV] IMU reports enabled");
-        return true;
-    }
-
-    Serial.println("[NAV] Failed to enable IMU reports");
-    return false;
+    Serial.println("[IMU] BNO085 RVC started on UART");
+    return true;
 }
 
 bool ImuSensor::begin()
 {
-    Wire.begin(CompassConfig::SDA_PIN, CompassConfig::SCL_PIN);
-    Wire.setClock(CompassConfig::FREQ_HZ);
-
-    _headingDeg = 0.0f;
-    // Default single-IMU config (kan senare ersättas med boat/motor-specifik config)
-    _headingOffsetDeg = CompassConfig::M_HEADING_OFFSET_DEG;
-    _valid = false;
-    _imuFailCount = 0;
-
-    if (!_bno08x.begin_I2C())
-    {
-        Serial.println("[NAV] BNO085 not found on I2C");
-        return false;
-    }
-
-    Serial.println("[NAV] BNO085 found");
-
-    if (enableReports())
-    {
-        Serial.println("[NAV] IMU reports enabled");
-        return true;
-    }
-
-    Serial.println("[NAV] Failed to enable IMU reports");
-    return false;
+    return begin(
+        CompassConfig::RX_PIN,
+        CompassConfig::TX_PIN,
+        CompassConfig::BAUD,
+        CompassConfig::M_HEADING_OFFSET_DEG);
 }
 
 void ImuSensor::setHeadingOffset(float offsetDeg)
@@ -69,17 +47,6 @@ void ImuSensor::setCorrectionTable(const HeadingCorrectionPoint *table, uint8_t 
     _correctionCount = count;
 }
 
-bool ImuSensor::enableReports()
-{
-    if (!_bno08x.enableReport(SH2_GEOMAGNETIC_ROTATION_VECTOR))
-    {
-        Serial.println("[IMU] Could not enable geomagnetic rotation vector");
-        return false;
-    }
-
-    return true;
-}
-
 float ImuSensor::correctHeading(float raw)
 {
     return HeadingCalibration::apply(
@@ -88,61 +55,11 @@ float ImuSensor::correctHeading(float raw)
         _correctionCount);
 }
 
-void ImuSensor::update(ImuHeading& out)
+void ImuSensor::update(ImuHeading &out)
 {
-    if (_bno08x.wasReset())
-    {
-        Serial.println("[IMU] Sensor reset detected, re-enabling reports");
-        if (!enableReports())
-        {
-            _valid = false;
-            out.valid = false;
-            return;
-        }
-    }
+    BNO08x_RVC_Data rvcData;
 
-    bool gotRotationVector = false;
-
-    while (_bno08x.getSensorEvent(&_sensorValue))
-    {
-        if (_sensorValue.sensorId == SH2_GEOMAGNETIC_ROTATION_VECTOR)
-        {
-            gotRotationVector = true;
-
-            const float qi = _sensorValue.un.rotationVector.i;
-            const float qj = _sensorValue.un.rotationVector.j;
-            const float qk = _sensorValue.un.rotationVector.k;
-            const float qr = _sensorValue.un.rotationVector.real;
-
-            float pitchRad = asinf(2.0f * (qr * qj - qk * qi));
-
-            float rollRad = atan2f(
-                2.0f * (qr * qi + qj * qk),
-                1.0f - 2.0f * (qi * qi + qj * qj));
-
-            out.pitchDeg = pitchRad * 180.0f / PI;
-            out.rollDeg = rollRad * 180.0f / PI;
-
-            float yawRad = atan2f(
-                2.0f * (qr * qk + qi * qj),
-                1.0f - 2.0f * (qj * qj + qk * qk)
-            );
-
-            float headingDeg = yawRad * 180.0f / PI;
-            headingDeg += _headingOffsetDeg;
-            headingDeg = wrap360(headingDeg);
-            headingDeg = correctHeading(headingDeg);
-
-            _headingDeg = headingDeg;
-            _valid = true;
-
-            out.headingDeg = _headingDeg;
-            out.valid = true;
-            out.accuracy = _sensorValue.status;
-        }
-    }
-
-    if (!gotRotationVector)
+    if (!_rvc.read(&rvcData))
     {
         _imuFailCount++;
         if (_imuFailCount >= IMU_FAIL_LIMIT)
@@ -151,12 +68,30 @@ void ImuSensor::update(ImuHeading& out)
         }
 
         out.headingDeg = _headingDeg;
+        out.pitchDeg = _pitchDeg;
+        out.rollDeg = _rollDeg;
         out.valid = _valid;
-        out.accuracy = _sensorValue.status;
+        out.accuracy = _valid ? 3 : 0;
         return;
     }
 
     _imuFailCount = 0;
+
+    float headingDeg = rvcData.yaw;
+    headingDeg += _headingOffsetDeg;
+    headingDeg = wrap360(headingDeg);
+    headingDeg = correctHeading(headingDeg);
+
+    _headingDeg = headingDeg;
+    _pitchDeg = rvcData.pitch;
+    _rollDeg = rvcData.roll;
+    _valid = true;
+
+    out.headingDeg = _headingDeg;
+    out.pitchDeg = _pitchDeg;
+    out.rollDeg = _rollDeg;
+    out.valid = true;
+    out.accuracy = 3;
 
     static uint32_t lastImuPrintMs = 0;
     const uint32_t now = millis();
@@ -164,10 +99,10 @@ void ImuSensor::update(ImuHeading& out)
     if (now - lastImuPrintMs >= 1000)
     {
         lastImuPrintMs = now;
-        Serial.printf("[IMU] hdg=%.1f acc=%u\n", _headingDeg, _sensorValue.status);
+        Serial.printf(
+            "[IMU] hdg=%.1f pitch=%.1f roll=%.1f\n",
+            _headingDeg,
+            _pitchDeg,
+            _rollDeg);
     }
-
-    out.headingDeg = _headingDeg;
-    out.valid = _valid;
-    out.accuracy = _sensorValue.status;
 }
