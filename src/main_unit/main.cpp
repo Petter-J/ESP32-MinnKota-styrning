@@ -347,13 +347,8 @@ void loop()
     gSys.lastCommand.valid = true;
     gSys.lastCommand.timestampMs = now;
 
-    // 4. Interpret buttons
-    const ButtonOutput btn = gButtons.update(effectiveMask, now);
 
-    // 5. Apply input policy BEFORE navigation
-    gInputLogic.applyButtons(btn, now, gSys, gController);
-
-    // 6. Boat heading from Remote1
+    // 4. Boat heading from Remote1
     float remoteBoatHeadingDeg = 0.0f;
 
     if (gRemote.getBoatHeading(remoteBoatHeadingDeg, now))
@@ -366,10 +361,16 @@ void loop()
         gSys.sensors.boatImuValid = false;
     }
 
-    // 7. Navigation: GPS + local MH + fusion
+    // 5. Navigation: GPS + local MH + fusion
     gNavigation.update(gSys.sensors);
 
-    // 8. Calibration sweep update
+    // 6. Interpret buttons AFTER fresh sensors
+    const ButtonOutput btn = gButtons.update(effectiveMask, now);
+
+    // 7. Apply input policy AFTER navigation
+    gInputLogic.applyButtons(btn, now, gSys, gController);
+
+    // . Calibration sweep update
     gCalibration.update(
         gSys.sensors.courseOverGroundDeg,
         gSys.sensors.gpsSpeedMps,
